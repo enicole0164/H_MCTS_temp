@@ -34,8 +34,8 @@ class All_level_Grids_w_agent:
         self,
         l1_rows: int,
         l1_cols: int,
-        l1_cell_width,  # not have to be int, but recommended
-        l1_cell_height,  # not have to be int, but recommended
+        l1_width,  # not have to be int, but recommended
+        l1_height,  # not have to be int, but recommended
         destination_radius: float = 2,
         barrier_find_segment: int = 101,
         highest_level=None,
@@ -50,8 +50,8 @@ class All_level_Grids_w_agent:
             lowest_Grid_w_agent(
                 l1_rows,
                 l1_cols,
-                l1_cell_width,
-                l1_cell_height,
+                l1_width,
+                l1_height,
                 level=0,
                 destination_radius=destination_radius,
                 barrier_find_segment=barrier_find_segment,
@@ -59,8 +59,8 @@ class All_level_Grids_w_agent:
         ]
         for i in range(self.highest_level):
             rows, cols = l1_rows / (2**i), l1_cols / (2**i)
-            cell_width = l1_cell_width * (2**i)
-            cell_height = l1_cell_height * (2**i)
+            cell_width = l1_width * (2**i)
+            cell_height = l1_height * (2**i)
 
             higher_Grid = high_Grid_w_agent(
                 rows,
@@ -101,8 +101,8 @@ class high_level_Grids_w_agent:
         self,
         l1_rows: int,
         l1_cols: int,
-        l1_cell_width,  # not have to be int, but recommended
-        l1_cell_height,  # not have to be int, but recommended
+        l1_width,  # not have to be int, but recommended
+        l1_height,  # not have to be int, but recommended
         destination_radius: float = 2,
         barrier_find_segment: int = 101,
         highest_level=None,
@@ -116,8 +116,8 @@ class high_level_Grids_w_agent:
         self.l1_grid = lowest_Grid_w_agent(
             l1_rows,
             l1_cols,
-            l1_cell_width,
-            l1_cell_height,
+            l1_width,
+            l1_height,
             level=0,
             destination_radius=destination_radius,
             barrier_find_segment=barrier_find_segment,
@@ -127,8 +127,8 @@ class high_level_Grids_w_agent:
         
         for i in range(self.highest_level):
             rows, cols = l1_rows / (2**i), l1_cols / (2**i)
-            cell_width = l1_cell_width * (2**i)
-            cell_height = l1_cell_height * (2**i)
+            cell_width = l1_width * (2**i)
+            cell_height = l1_height * (2**i)
 
             higher_Grid = high_Grid_w_agent(
                 rows,

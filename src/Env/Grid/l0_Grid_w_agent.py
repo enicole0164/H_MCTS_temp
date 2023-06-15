@@ -9,33 +9,33 @@ from .Agent import lowest_Agent
 class lowest_Grid_w_agent:
     def __init__(
         self,
-        rows: int,
-        cols: int,
-        cell_width,  # not have to be int, but recommended
-        cell_height,  # not have to be int, but recommended
+        grid_settings,
         level: int = 0,
-        destination_radius: float = 2,
+        goal_radius: float = 2,
         barrier_find_segment: int = 101,
+        random_seed: int=30
     ):
         self.level = level
-        self.rows = rows
-        self.cols = cols
-        self.cell_width = cell_width
-        self.cell_height = cell_height
-        self.total_width = cols * cell_width
-        self.total_height = rows * cell_height
+        self.rows = grid_settings[0]
+        self.cols = grid_settings[1]
+        self.cell_width = grid_settings[2]
+        self.cell_height = grid_settings[3]
+        self.total_width = self.cols * self.cell_width
+        self.total_height = self.rows * self.cell_height
+        
+        np.random.seed(random_seed)
 
-        self.barrier_regions = self.generate_barrier_regions()
+        self.barrier = self.generate_barrier()
         (
             self.start_x,
             self.start_y,
-            self.dest_x,
-            self.dest_y,
-        ) = self.generate_start_dest()
+            self.goal_x,
+            self.goal_y,
+        ) = self.generate_start_goal()
 
         self.agent = lowest_Agent(self.start_x, self.start_y, self.level)
         self.is_terminated = False
-        self.radius = destination_radius
+        self.radius = goal_radius
         self.barrier_find_segment = barrier_find_segment
 
     def __str__(self):
@@ -43,37 +43,37 @@ class lowest_Grid_w_agent:
             f"level: {self.level} \n"
             f"Grid: {self.rows} rows, {self.cols} columns, \n"
             f"total size: {self.total_width}x{self.total_height}, \n"
-            f"start: ({self.start_x}, {self.start_y}), destination: ({self.dest_x}, {self.dest_y}), \n"
+            f"start: ({self.start_x}, {self.start_y}), destination: ({self.goal_x}, {self.goal_y}), \n"
             f"is_terminated: {self.is_terminated}"
         )
 
-    def generate_start_dest(self):
+    def generate_start_goal(self):
         while True:
             start_x = np.random.uniform(0, self.total_width)
             start_y = np.random.uniform(0, self.total_height)
-            dest_x = np.random.uniform(0, self.total_width)
-            dest_y = np.random.uniform(0, self.total_height)
-            distance = math.sqrt((start_x - dest_x) ** 2 + (start_y - dest_y) ** 2)
+            goal_x = np.random.uniform(0, self.total_width)
+            goal_y = np.random.uniform(0, self.total_height)
+            distance = math.sqrt((start_x - goal_x) ** 2 + (start_y - goal_y) ** 2)
             if (
                 distance > 1
                 and not self.is_barrier(start_x, start_y)
-                and not self.is_barrier(dest_x, dest_y)
+                and not self.is_barrier(goal_x, goal_y)
             ):
-                return start_x, start_y, dest_x, dest_y
+                return start_x, start_y, goal_x, goal_y
 
-    def generate_barrier_regions(self):
+    def generate_barrier(self):
         # Number of barrier regions (randomly chosen)
-        num_regions = 4  # random.randint(3, 6)
+        num_barrier = 0  # random.randint(3, 6)  # 15
         regions = []
-        for _ in range(num_regions):
+        for _ in range(num_barrier):
             # Width of the barrier region
-            region_width = random.randint(1, self.cols // 2)
+            region_width = np.random.randint(1, 2)  # self.cols // 2)
             # Height of the barrier region
-            region_height = random.randint(1, self.rows // 2)
+            region_height = np.random.randint(1,  2) # self.rows // 2)
             # X-coordinate of the top-left corner of the region
-            region_x = random.randint(0, self.cols - region_width)
+            region_x = np.random.randint(0, self.cols - region_width)
             # Y-coordinate of the top-left corner of the region
-            region_y = random.randint(0, self.rows - region_height)
+            region_y = np.random.randint(0, self.rows - region_height)
             regions.append(
                 (
                     region_x * self.cell_width,
@@ -87,7 +87,7 @@ class lowest_Grid_w_agent:
     def is_barrier(self, x, y):
         if x < 0 or y < 0 or x >= self.total_width or y >= self.total_height:
             return True  # Outside of the grid is considered a barrier
-        for region in self.barrier_regions:
+        for region in self.barrier:
             region_x, region_y, region_width, region_height = region
             if (
                 region_x <= x < region_x + region_width
@@ -128,7 +128,7 @@ class lowest_Grid_w_agent:
         # Calculate the distance between the agent's recent location and the destination
         recent_x, recent_y = self.agent.trajectory[-1]
         distance = math.sqrt(
-            (recent_x - self.dest_x) ** 2 + (recent_y - self.dest_y) ** 2
+            (recent_x - self.goal_x) ** 2 + (recent_y - self.goal_y) ** 2
         )
 
         # Check if the distance is within the specified radius (r)
@@ -153,11 +153,11 @@ class lowest_Grid_w_agent:
             self.start_x, self.start_y, color="green", marker="o", s=25, label="Start"
         )
         plt.scatter(
-            self.dest_x, self.dest_y, color="red", marker="o", s=25, label="Destination"
+            self.goal_x, self.goal_y, color="red", marker="o", s=25, label="Goal"
         )
 
         # Plot barrier regions with the same color
-        for region in self.barrier_regions:
+        for region in self.barrier:
             region_x, region_y, region_width, region_height = region
             rect = plt.Rectangle(
                 (region_x, region_y),
