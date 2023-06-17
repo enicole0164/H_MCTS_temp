@@ -10,7 +10,7 @@ class HighLevelGrids:
     def __init__(
         self,
         grid_settings,
-        highest_level=None,
+        H_level=None,
         A_space={
             (1, 0),
             (-1, 0),
@@ -23,19 +23,12 @@ class HighLevelGrids:
         action_cost=-1,
         random_seed=26,
         l1_barrier=True,
-        num_barrier=10
+        num_barrier=10,
     ):
         self.l1_rows = grid_settings[0]
         self.l1_cols = grid_settings[1]
         self.l1_width = grid_settings[2]
         self.l1_height = grid_settings[3]
-
-        if highest_level is None:
-            self.highest_level = check_both_power_of_RS(
-                self.l1_rows, self.l1_cols, RS=2
-            )
-        else:
-            self.highest_level = highest_level
 
         self.total_width = self.l1_cols * self.l1_width
         self.total_height = self.l1_rows * self.l1_height
@@ -48,10 +41,17 @@ class HighLevelGrids:
 
         np.random.seed(random_seed)
 
+        # Set highest level
+        if H_level is None:
+            self.H_level = check_both_power_of_RS(self.l1_rows, self.l1_cols, RS=RS)
+        else:
+            self.H_level = H_level
+
+        # set level 1 barrier
         if l1_barrier:
             self.num_barrier = num_barrier  # random.randint(3, 6)  # 15
             self.generate_barrier()
-        else:
+        else:  # no barrier map
             self.num_barrier = 0
             self.barrier = []
 
@@ -60,56 +60,40 @@ class HighLevelGrids:
         # reward of goal and subgoal for each level; key: level, value: reward
         self.r_dict, self.sub_r_dict = self.set_rewards()
         self.cols = {
-            l + 1: int(self.l1_cols / self.RS**l) for l in range(self.highest_level)
+            l + 1: int(self.l1_cols / self.RS**l) for l in range(self.H_level)
         }
         self.rows = {
-            l + 1: int(self.l1_rows / self.RS**l) for l in range(self.highest_level)
+            l + 1: int(self.l1_rows / self.RS**l) for l in range(self.H_level)
         }
 
     def random_start_goal(self):
-        start_x = np.random.randint(0, self.l1_cols)
-        start_y = np.random.randint(0, self.l1_rows)
-        goal_x = np.random.randint(0, self.l1_cols)
-        goal_y = np.random.randint(0, self.l1_rows)
+        while True:
+            start_x, goal_x = np.random.randint(0, self.l1_cols, 2)
+            start_y, goal_y = np.random.randint(0, self.l1_rows, 2)
+            start = (start_x, start_y)
+            goal = (goal_x, goal_y)
 
-        while (start_x, start_y) == (goal_x, goal_y):
-            start_x = np.random.randint(0, self.l1_cols)
-            start_y = np.random.randint(0, self.l1_rows)
-            goal_x = np.random.randint(0, self.l1_cols)
-            goal_y = np.random.randint(0, self.l1_rows)
-        
-        return (start_x, start_y), (goal_x, goal_y)
+            if start != goal and start not in self.barrier and goal not in self.barrier:
+                return start, goal
 
     def generate_start_goal(self):
-        positions = {"start": None, "goal": None}
-        for pos in positions.keys():
-            positions[pos], _ = self.random_start_goal()
-            while positions[pos] in self.barrier:
-                positions[pos], _ = self.random_start_goal()
+        start, goal = self.random_start_goal()
+        start_dict, goal_dict = {1: start}, {1: goal}
 
-        start_dict = {1: positions["start"]}
-        goal_dict = {1: positions["goal"]}
-        for level in range(2, self.highest_level + 1):
-            for pos in positions.keys():
-                positions[pos] = hierarchy_map(
-                    level_current=1,
-                    level_to_move=level,
-                    x=positions[pos][0],
-                    y=positions[pos][1],
-                )
-                if pos == "start":
-                    start_dict[level] = positions[pos]
-                else:
-                    goal_dict[level] = positions[pos]
+        for level in range(2, self.H_level + 1):
+            start_dict[level] = hierarchy_map(
+                level_current=1, level2move=level, pos=start
+            )
+            goal_dict[level] = hierarchy_map(
+                level_current=1, level2move=level, pos=goal
+            )
 
         return start_dict, goal_dict
 
     def set_rewards(self):
-        r_dict = {}
-        sub_r_dict = {}
-        for l in range(1, self.highest_level + 1):
-            r_dict[l] = self.l1_goal_reward / (self.RS ** (l - 1))
-            sub_r_dict[l] = self.l1_subgoal_reward / (self.RS ** (l - 1))
+        levels = range(1, self.H_level + 1)
+        r_dict = {l: self.l1_goal_reward / (self.RS ** (l - 1)) for l in levels}
+        sub_r_dict = {l: self.l1_subgoal_reward / (self.RS ** (l - 1)) for l in levels}
 
         return r_dict, sub_r_dict
 
@@ -118,39 +102,35 @@ class HighLevelGrids:
         possible_A = []
 
         # Check the neighboring cells in all directions
-        directions = tuple(self.A_space)
-
-        for dx, dy in directions:
+        for dx, dy in self.A_space:
             new_x = x + dx
             new_y = y + dy
+
             # Check if the new position is within the grid boundaries
             if 0 <= new_x < self.cols[level] and 0 <= new_y < self.rows[level]:
-                if level == 1:
-                    if not self.is_barrier(new_x, new_y):
-                        possible_A.append((level, dx, dy))
-                else:
+                if level != 1 or not self.is_barrier(new_x, new_y):
                     possible_A.append((level, dx, dy))
-                # possible_A.append((level, dx, dy))
 
-        return possible_A  # list e.g. [(0, 1), (0, - 1), (1, 0), (- 1, 0)]
+        return possible_A
 
     # transition function T(s, a) -> s
     def step(self, s, a):  # s: (level, x, y), a: (level, dx, dy)
         level, x, y = s
-        if (a[1], a[2]) not in self.A_space:
-            raise Exception("Wrong action")
+        dx, dy = a[1], a[2]
 
-        next_x = x + a[1]
-        next_y = y + a[2]
+        if (dx, dy) not in self.A_space:
+            raise Exception("Invalid action")
+
+        next_x, next_y = x + dx, y + dy
 
         # Clip the next position to ensure it stays within the grid boundaries
         next_x = np.clip(next_x, 0, self.cols[level] - 1)
         next_y = np.clip(next_y, 0, self.rows[level] - 1)
 
         if level == 1 and self.is_barrier(next_x, next_y):
-            next_x, next_y = x, y
+            return (level, x, y)
 
-        return (level, next_x, next_y)  # , r
+        return (level, next_x, next_y)
 
     def calculate_d2Goal(self, s):
         level, x, y = s
@@ -176,17 +156,14 @@ class HighLevelGrids:
     def reward_subgoal(self, node, subgoal_set):
         level, x, y = node.s
         subgoal_r_sum = 0
-        for level_subgoal, subgoal_x, subgoal_y in subgoal_set:
-            map_x, map_y = hierarchy_map(
-                level_current=level,
-                level_to_move=level_subgoal,
-                x=x,
-                y=y,
-            )
 
-            if (subgoal_x, subgoal_y) == (map_x, map_y) and level_subgoal > level:
-                # node.subgoal_set.remove((level_subgoal, map_x, map_y))
-                subgoal_r_sum += self.sub_r_dict[level_subgoal]
+        for level_subgoal, subgoal_x, subgoal_y in subgoal_set:
+            if level_subgoal > level:
+                map_x, map_y = hierarchy_map(
+                    level_current=level, level2move=level_subgoal, pos=(x, y)
+                )
+                if (subgoal_x, subgoal_y) == (map_x, map_y):
+                    subgoal_r_sum += self.sub_r_dict[level_subgoal]
 
         return subgoal_r_sum
 
@@ -194,7 +171,7 @@ class HighLevelGrids:
     def calculate_reward(self, node, subgoal_set):
         subgoal_r = self.reward_subgoal(node, subgoal_set)
         goal_r = self.reward_goal(node.s)
-        # print(node, subgoal_set, subgoal_r, goal_r)
+
         return subgoal_r + goal_r
 
     def generate_barrier(self):
@@ -218,8 +195,7 @@ class HighLevelGrids:
         if x < 0 or y < 0 or x >= self.l1_cols or y >= self.l1_rows:
             return True  # Outside of the grid is considered a barrier
         for region in self.barrier:
-            region_x, region_y = region
-            if (x, y) == (region_x, region_y):
+            if (x, y) == region:
                 return True  # Inside the barrier region
         return False  # Not a barrier
 

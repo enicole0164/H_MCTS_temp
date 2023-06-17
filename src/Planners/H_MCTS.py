@@ -92,7 +92,7 @@ class H_MCTS:
     def __init__(
         self,
         grid_setting,  # l1_rows, l1_cols, l1_width, l1_height
-        highest_level=1,
+        H_level=1,
         A_space={(1, 0), (-1, 0), (0, 1), (0, -1)},
         RS=2,
         l1_goal_reward=10,
@@ -120,7 +120,7 @@ class H_MCTS:
 
         self.set_Env(
             grid_setting,
-            highest_level,
+            H_level,
             A_space,
             RS,
             l1_goal_reward,
@@ -133,14 +133,14 @@ class H_MCTS:
 
         # Assume that we know the Env
         self.informed = informed
-        self.success_traj = {level + 1: set() for level in range(self.Env.highest_level)}
+        self.success_traj = {level + 1: set() for level in range(self.Env.H_level)}
 
     # Set Environment for Root node and children nodes
     # Have difference at action space
     def set_Env(
         self,
         grid_setting,  # l1_rows, l1_cols, l1_width, l1_height
-        highest_level=None,
+        H_level=None,
         A_space={(1, 0), (-1, 0), (0, 1), (0, -1)},
         RS=2,
         l1_goal_reward=10,
@@ -152,7 +152,7 @@ class H_MCTS:
     ):
         self.Env = HighLevelGrids(
             grid_setting,
-            highest_level,
+            H_level,
             A_space,
             RS,
             l1_goal_reward,
@@ -166,7 +166,7 @@ class H_MCTS:
         # only high level(>= 2) root can do action with stay (0, 0)
         self.root_Env = HighLevelGrids(
             grid_setting,
-            highest_level,
+            H_level,
             A_space
             | {(0, 0)},  # only Root can have action stay (because of abstraction)
             RS,
@@ -180,9 +180,9 @@ class H_MCTS:
 
         # Generate initial state at the highest level
         self.init_s = (
-            self.Env.highest_level,
-            self.Env.start_dict[self.Env.highest_level][0],
-            self.Env.start_dict[self.Env.highest_level][1],
+            self.Env.H_level,
+            self.Env.start_dict[self.Env.H_level][0],
+            self.Env.start_dict[self.Env.H_level][1],
         )
 
     def set_Root(self):
@@ -193,30 +193,37 @@ class H_MCTS:
 
     # while loop in pseudo code (replace by for loop)
     def search(self):
+        root_Performance = []
         self.set_Root()  # set root and its subgoal ( destination at high level)
 
         for i in range(self.searchLimit):
             self.executeRound()
+            root_Performance.append(self.root.totalReward / self.root.numVisits)
 
         node = self.root
         best_traj = [node.s]
         while len(node.children.keys()) != 0:
             node = self.getBestChild(node, 0)
             best_traj.append(node.s)
-        return best_traj
+        return best_traj, root_Performance
 
     # One Simulation
     def executeRound(self):
         curr_level = self.root.s[0]
 
         
-        # Select Lear
+        # Select Leaf
         node = self.selectNode(self.root)
 
+        ######################## Check the failure############################# 
+        
+        
+        
+        ######################################################################
         # Root go low level and set subgoal
         if node.isTerminal:
             if len(self.success_traj[node.s[0]]) == 0:
-                print(f"trajectory to goal is {node.traj}")                
+                # print(f"trajectory to goal is {node.traj}")                
                 if node.s[0] == curr_level and curr_level != 1:                    
                     self.Root_renew()
                     for A, child in list(self.root.children.items()):
@@ -333,6 +340,9 @@ class H_MCTS:
         return self.Env.calculate_reward(
             node=node, subgoal_set=node.parent.subgoal_set
         )
+        
+    # def checkFailure(self, node):
+        
 
     # def extendable_subgoal(self, node: H_Node):
     #     # means arrive at subgoal point
