@@ -20,7 +20,8 @@ class HighLevelGrids:
         RS=2,
         l1_goal_reward=20,
         l1_subgoal_reward=4,
-        action_cost=-1,
+        action_cost=(-1) * 4,
+        cycle_penalty=(-1) * 20,
         random_seed=26,
         l1_barrier=True,
         num_barrier=10,
@@ -38,6 +39,7 @@ class HighLevelGrids:
         self.l1_goal_reward = l1_goal_reward
         self.l1_subgoal_reward = l1_subgoal_reward
         self.action_cost = action_cost
+        self.cycle_penalty = cycle_penalty
 
         np.random.seed(random_seed)
 
@@ -72,8 +74,8 @@ class HighLevelGrids:
             start_y, goal_y = np.random.randint(0, self.l1_rows, 2)
             start = (start_x, start_y)
             goal = (goal_x, goal_y)
-
-            if start != goal and start not in self.barrier and goal not in self.barrier:
+            distance = abs(start_x - goal_x) + abs(start_y - goal_y)
+            if distance > 1 and start not in self.barrier and goal not in self.barrier:
                 return start, goal
 
     def generate_start_goal(self):
@@ -167,12 +169,19 @@ class HighLevelGrids:
 
         return subgoal_r_sum
 
-    # reward function
-    def calculate_reward(self, state, subgoal_set):
-        subgoal_r = self.reward_subgoal(state, subgoal_set)
-        goal_r = self.reward_goal(state)
+    def reward_cycle(self, node):
+        if node.isCycle:  # node is Cycle
+            return self.cycle_penalty
+        else:
+            return 0
 
-        return subgoal_r + goal_r
+    # reward function
+    def calculate_reward(self, node, subgoal_set):
+        subgoal_r = self.reward_subgoal(node.s, subgoal_set)
+        goal_r = self.reward_goal(node.s)
+        Cycle_cost = self.reward_cycle(node)
+
+        return subgoal_r + goal_r + Cycle_cost
 
     def generate_barrier(self):
         regions = set()
@@ -200,7 +209,7 @@ class HighLevelGrids:
         return False  # Not a barrier
 
     def plot_grid(self, level):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(3, 3))
 
         # Determine the grid size based on the specified level
         rows = self.rows[level]
