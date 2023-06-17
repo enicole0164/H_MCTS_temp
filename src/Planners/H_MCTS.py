@@ -26,8 +26,6 @@ class H_Node:
         self.numVisits = 0
         self.totalReward = 0.0
 
-        self.subgoal_set = set()  # set of subgoal with state (level, x, y)
-
         self.untried_Actions = self.getPossibleActions(Grid)
 
         self.set_R_status()
@@ -38,6 +36,7 @@ class H_Node:
         # is not terminal -> then can have children
         # is terminal -> then cannot have children
         self.isFullyExpanded = self.isTerminal
+        self.isCycle = False
 
     # set Root status
     def set_R_status(self):
@@ -51,15 +50,11 @@ class H_Node:
     def set_T_status(self, Grid: HighLevelGrids):
         if self.isRoot == True:  # Root CANNOT be terminal node
             self.isTerminal = False
-        else:
-            # do not separate level
+        else:  # do not separate level
             self.isTerminal = Grid.check_goal_pos(self.s)
 
     def get_distance(self, Grid: HighLevelGrids):  # at its level, v_{approx}
         self.distance = Grid.calculate_d2Goal(s=self.s)
-
-    # only for Root node. When find the level i's feasible path.
-    # generate the Root node state change. level i to i-1
 
     def num_child(self):
         return len(self.children)
@@ -72,20 +67,20 @@ class H_Node:
 
     def set_subgoals(self):
         if self.parent is None:  # Root node
-            pass
-        else:  # non-Root node
-            self.subgoal_set = {i for i in self.parent.subgoal_set if i[0] > self.s[0]}
-            copy_subgoal = deepcopy(self.subgoal_set)
-            for level_subgoal, subgoal_x, subgoal_y in copy_subgoal:
+            self.subgoal_set = set()
+            return
+
+        # non-Root node
+        self.subgoal_set = set()
+        for level_subgoal, subgoal_x, subgoal_y in self.parent.subgoal_set:
+            if level_subgoal > self.s[0]:
                 map_x, map_y = hierarchy_map(
                     level_current=self.s[0],
-                    level_to_move=level_subgoal,
-                    x=self.s[1],
-                    y=self.s[2],
+                    level2move=level_subgoal,
+                    pos=(self.s[1], self.s[2]),
                 )
-
-                if (subgoal_x, subgoal_y) == (map_x, map_y) and level_subgoal > self.s[0]:
-                    self.subgoal_set.remove((level_subgoal, map_x, map_y))
+                if (subgoal_x, subgoal_y) != (map_x, map_y):  # belong subgoal check
+                    self.subgoal_set.add((level_subgoal, subgoal_x, subgoal_y))
 
 
 class H_MCTS:
@@ -211,39 +206,36 @@ class H_MCTS:
     def executeRound(self):
         curr_level = self.root.s[0]
 
-        
         # Select Leaf
         node = self.selectNode(self.root)
 
-        ######################## Check the failure############################# 
-        
-        
-        
+        ######################## Check the detectCycle#############################
+
         ######################################################################
         # Root go low level and set subgoal
         if node.isTerminal:
             if len(self.success_traj[node.s[0]]) == 0:
-                # print(f"trajectory to goal is {node.traj}")                
-                if node.s[0] == curr_level and curr_level != 1:                    
+                # print(f"trajectory to goal is {node.traj}")
+                if node.s[0] == curr_level and curr_level != 1:
                     self.Root_renew()
                     for A, child in list(self.root.children.items()):
                         if child.s == node.traj[0]:
                             del self.root.children[A]
                             break
-                
+
             if node.s[0] > curr_level:
                 self.root.subgoal_set.update(node.traj)
                 for A, child in list(self.root.children.items()):
                     if child.s == node.traj[0]:
                         del self.root.children[A]
                         break
-                    
+
             self.success_traj[node.s[0]].add(tuple(node.traj))
 
         # Expand Multi Level
 
         self.backpropagate(node=node)  # , reward=reward)
-        
+
     # SELECTLEAF in pseudo code
     def selectNode(self, node):
         while not node.isTerminal:
@@ -259,23 +251,18 @@ class H_MCTS:
         # randomly choose the action from possible action
         # untried_actions = node.getPossibleActions()
         action = random.choice(list(node.untried_Actions))
-        if node.isRoot:
-            next_s = node.step(self.root_Env, action)
-        else:
-            next_s = node.step(self.Env, action)
+        env = self.root_Env if node.isRoot else self.Env
 
+        next_s = node.step(env, action)
+
+        # Create new node and update the current node
         new_Node = H_Node(s=next_s, Grid=deepcopy(self.Env), parent=node)
         node.untried_Actions.remove(action)
-
         node.children[action] = new_Node
 
-        # Compare only current level's children
-        num_children = len(
-            [ch for ch in node.children.values() if ch.s[0] == node.s[0]]
-        )
-        num_actions = len(node.getPossibleActions(self.Env))
-        if node.isRoot and node.s[0] > 1:
-            num_actions = len(node.getPossibleActions(self.root_Env))
+        # Compare only ***current level***'s children
+        num_children = sum(1 for ch in node.children.values() if ch.s[0] == node.s[0])
+        num_actions = len(node.getPossibleActions(env))
 
         if num_children == num_actions:
             node.isFullyExpanded = True
@@ -289,18 +276,15 @@ class H_MCTS:
             self.Env.start_dict[new_root_level][0],
             self.Env.start_dict[new_root_level][1],
         )
-        if new_root_level == 1:
+        if new_root_level == 1:  # allow ACTION stay (0, 0)
             self.root.untried_Actions = self.root.getPossibleActions(self.Env)
-        else:
+        else:  # DO NOT allow ACTION stay (0, 0)
             self.root.untried_Actions = self.root.getPossibleActions(self.root_Env)
 
         self.root.isFullyExpanded = False
         self.root.distance = self.root.get_distance(self.Env)
         self.root.totalReward = 0.0
         self.root.numVisits = 0
-        
-        
-            
 
     def backpropagate(self, node):
         reward = self.getReward(node)
@@ -338,11 +322,10 @@ class H_MCTS:
 
     def getReward(self, node):
         return self.Env.calculate_reward(
-            node=node, subgoal_set=node.parent.subgoal_set
+            state=node.s, subgoal_set=node.parent.subgoal_set
         )
-        
+
     # def checkFailure(self, node):
-        
 
     # def extendable_subgoal(self, node: H_Node):
     #     # means arrive at subgoal point

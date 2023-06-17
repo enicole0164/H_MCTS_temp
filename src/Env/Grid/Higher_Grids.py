@@ -153,8 +153,8 @@ class HighLevelGrids:
         goal_x, goal_y = self.goal_dict[level]
         return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.action_cost
 
-    def reward_subgoal(self, node, subgoal_set):
-        level, x, y = node.s
+    def reward_subgoal(self, state, subgoal_set):
+        level, x, y = state
         subgoal_r_sum = 0
 
         for level_subgoal, subgoal_x, subgoal_y in subgoal_set:
@@ -168,9 +168,9 @@ class HighLevelGrids:
         return subgoal_r_sum
 
     # reward function
-    def calculate_reward(self, node, subgoal_set):
-        subgoal_r = self.reward_subgoal(node, subgoal_set)
-        goal_r = self.reward_goal(node.s)
+    def calculate_reward(self, state, subgoal_set):
+        subgoal_r = self.reward_subgoal(state, subgoal_set)
+        goal_r = self.reward_goal(state)
 
         return subgoal_r + goal_r
 
