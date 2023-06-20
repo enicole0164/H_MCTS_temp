@@ -161,17 +161,12 @@ class HighLevelGrids:
         goal_x, goal_y = self.goal_dict[level]
         return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
 
-    def reward_subgoal(self, node, subgoal_set):
-        level, x, y = node.s
+    def reward_subgoal(self, node):
+        achieved_subgoal = node.achieved_subgoal
         subgoal_r_sum = 0
 
-        for level_subgoal, subgoal_x, subgoal_y in subgoal_set:
-            if level_subgoal > level:
-                map_x, map_y = hierarchy_map(
-                    level_curr=level, level2move=level_subgoal, pos=(x, y)
-                )
-                if (subgoal_x, subgoal_y) == (map_x, map_y):
-                    subgoal_r_sum += self.sub_r_dict[level_subgoal]
+        for s in achieved_subgoal:
+            subgoal_r_sum += self.sub_r_dict[s[0]]
 
         return subgoal_r_sum
     
@@ -191,8 +186,8 @@ class HighLevelGrids:
             return 0
 
     # reward function
-    def calculate_reward(self, node, subgoal_set):
-        subgoal_r = self.reward_subgoal(node, subgoal_set)
+    def calculate_reward(self, node):
+        subgoal_r = self.reward_subgoal(node)
         goal_r = self.reward_goal(node.s)
         
         # No cost when achieve subgoal

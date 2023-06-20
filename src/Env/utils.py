@@ -21,10 +21,10 @@ def hierarchy_a_map(level, x, y, cell_width, cell_height, RS=2):
     return level + 1, hier_x, hier_y
 
 
-def hierarchy_map(level_current, level2move, pos, RS=2):
+def hierarchy_map(level_curr, level2move, pos, RS=2):
     # continuous Action space
-    # if level_current == 0:
-    #     level_up = level_to_move - level_current - 1
+    # if level_curr == 0:
+    #     level_up = level_to_move - level_curr - 1
     #     if level_up < 0:
     #         raise ValueError('wrong level input')
         
@@ -33,7 +33,7 @@ def hierarchy_map(level_current, level2move, pos, RS=2):
         
     # else:
     x, y = pos
-    level_up = level2move - level_current
+    level_up = level2move - level_curr
     if level_up < 0:
         raise ValueError('wrong level input')
     hier_x = int(x / (RS ** level_up))
