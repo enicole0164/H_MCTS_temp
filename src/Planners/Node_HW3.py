@@ -1,11 +1,11 @@
 from copy import deepcopy
 
-from src.Env.Grid.Higher_Grids_HW import HighLevelGrids
+from src.Env.Grid.Higher_Grids_HW3 import HighLevelGrids3
 from src.Env.utils import hierarchy_map
 
 
-class H_Node_HW:
-    def __init__(self, s: tuple, env: HighLevelGrids, parent=None):
+class H_Node_HW3:
+    def __init__(self, s: tuple, env: HighLevelGrids3, parent=None):
         self.s = s  # state: (level, x, y)
         self.env = env
         self.H_level = self.env.H_level
@@ -35,8 +35,13 @@ class H_Node_HW:
         
     def set_traj(self):
         if self.parent is None:  # Root
-            self.traj = []
-            self.traj_dict = {self.H_level: []}
+            if self.s[0] == 1:   # Root at level 1
+                self.traj = [self.s]
+                self.traj_dict = {self.H_level: [self.s[1:]]}
+            
+            else:
+                self.traj = []
+                self.traj_dict = {self.H_level: []}
             
         else:  # non-Root
             self.traj = deepcopy(self.parent.traj)
@@ -75,18 +80,17 @@ class H_Node_HW:
     def checkCycle(self):
         if self.s[0] != 1:  # Allow cycle for high level
             self.isCycle = False
-            return
-        self.untried_Actions = [
-            action
-            for action in self.untried_Actions
-            if self.step(action=action) not in self.traj
-        ]
-        if not self.isTerminal:
-            self.isCycle = (
-                len(self.untried_Actions) == 0
-            )  # cannot try action (belong to trajectory)
-        else:
-            self.isCycle = False
+        else:  # level at 1
+            self.untried_Actions = [
+                action
+                for action in self.untried_Actions
+                if self.step(action=action) not in self.traj
+            ]
+            if not self.isTerminal:
+                # No possible Action
+                self.isCycle = (len(self.untried_Actions) == 0)
+            else:
+                self.isCycle = False
     
     # Set high level state
     def set_High_state(self):
@@ -108,18 +112,32 @@ class H_Node_HW:
         self.isExtendable = False
 
         if self.parent is not None:
-            subgoal_set = self.parent.subgoal_set
-            for subgoal_traj in subgoal_set:
+            for subgoal_traj in self.parent.subgoal_set:
                 obj_state = subgoal_traj[0]
-                
-                if obj_state[0] > self.s[0]:
-                    if self.level_pos[obj_state[0]] == obj_state[1:]:  # achieve subgoal at level l+1
+                state = self.level_pos[obj_state[0]]
+                if state != obj_state:
+                    continue
+                else:
+                    if obj_state[0] == self.s[0] + 1:
+                        self.achieved_subgoal.append(subgoal_traj[0])
                         if len(subgoal_traj) > 1:
                             self.isExtendable = True
-                            self.expand_untried_Actions(level=obj_state[0])
+                            self.expand_untried_Actions(obj_state[0])
                             self.subgoal_set.add(subgoal_traj[1:])
+                        
+                    elif obj_state[0] > self.s[0] + 1:
                         self.achieved_subgoal.append(subgoal_traj[0])
-    
+                        if len(subgoal_traj) > 1:
+                            self.subgoal_set.add(subgoal_traj[1:])
+                        
+                    else:  # obj_state[0] < self.s[0] + 1
+                        # raise Exception('wrong subgoal at parent')
+                        pass
+            
+            # No achieved subgoal -> inherit subgoal_set
+            if len(self.achieved_subgoal) == 0:
+                self.subgoal_set = self.parent.subgoal_set
+                    
     # Expand the extendable node's untried actions into high-level actions for Exploration
     def expand_untried_Actions(self, expandLevel: int):
         if expandLevel == 1:

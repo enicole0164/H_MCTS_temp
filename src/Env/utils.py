@@ -1,3 +1,5 @@
+import math
+
 # only check the position is same as Root(starting)
 def check_Root_pos(Grid, level, x, y):
     return Grid.check_Root_pos(level=level, x=x, y=y)
@@ -40,3 +42,22 @@ def hierarchy_map(level_curr, level2move, pos, RS=2):
     hier_y = int(y / (RS ** level_up))
 
     return hier_x, hier_y
+
+def check_both_power_of_RS(a, b, RS=2):
+    largest_power = largest_power_gcd(a, b, RS)
+    if (a == b) and (a == RS**largest_power):
+        return largest_power
+    else:
+        return largest_power + 1
+    
+def largest_power_gcd(a, b, RS=2):
+    # Step 1: Calculate the GCD of a and b
+    gcd = math.gcd(a, b)
+
+    # Step 2: Find the largest power of 2 that divides the GCD
+    largest_power = 0
+    while gcd % RS == 0:
+        largest_power += 1
+        gcd //= RS
+
+    return largest_power

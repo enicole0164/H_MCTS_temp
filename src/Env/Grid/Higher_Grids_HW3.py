@@ -2,11 +2,10 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ..utils import hierarchy_map
-from .All_level_Grid_w_agent import check_both_power_of_RS
+from ..utils import hierarchy_map, check_both_power_of_RS
 
 
-class HighLevelGrids:
+class HighLevelGrids3:
     def __init__(
         self,
         grid_settings,
@@ -20,7 +19,7 @@ class HighLevelGrids:
         RS=2,
         l1_goal_reward=20,
         l1_subgoal_reward=4,
-        action_cost=(-1) * 4,
+        action_cost=(-1) * 2,
         random_seed=26,
         num_barrier=10,
     ):
@@ -44,9 +43,12 @@ class HighLevelGrids:
         if H_level is None:
             self.H_level = check_both_power_of_RS(self.l1_rows, self.l1_cols, RS=RS)
         else:
-            self.H_level = H_level
+            if H_level <= check_both_power_of_RS(self.l1_rows, self.l1_cols, RS=RS):
+                self.H_level = H_level
+            else:
+                raise Exception('wrong highest level input')
         
-        self.levels = [i for i in range(1, H_level + 1)]
+        self.levels = [i for i in range(1, self.H_level + 1)]
 
         # set level 1 barrier
         self.num_barrier = num_barrier  # random.randint(3, 6)
@@ -68,6 +70,9 @@ class HighLevelGrids:
         while True:
             start_x, goal_x = np.random.randint(0, self.l1_cols, 2)
             start_y, goal_y = np.random.randint(0, self.l1_rows, 2)
+            # start_x, start_y = (0, 0)
+            # goal_x, goal_y = (self.l1_cols-1, self.l1_rows-1)
+            
             start = (start_x, start_y)
             goal = (goal_x, goal_y)
             distance = abs(start_x - goal_x) + abs(start_y - goal_y)
@@ -160,21 +165,11 @@ class HighLevelGrids:
         return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
 
     def reward_subgoal(self, node):
-        achieved_subgoal = node.achieved_subgoal
         subgoal_r_sum = 0
 
-        for s in achieved_subgoal:
+        for s in node.achieved_subgoal:
             subgoal_r_sum += self.sub_r_dict[s[0]]
 
-        return subgoal_r_sum
-    
-    def reward_subgoal_PAIR(self, child_subgoal, subgoal_set):
-        subgoal_r_sum = 0
-        
-        succeed_subgoal = subgoal_set - child_subgoal
-        for i, j in succeed_subgoal:
-            subgoal_r_sum += self.sub_r_dict[i[0]]
-        
         return subgoal_r_sum
 
     # reward function
@@ -187,13 +182,6 @@ class HighLevelGrids:
             goal_r = 0
 
         return subgoal_r + goal_r
-    
-    def calculate_reward_PAIR(self, node, subgoal_set):
-        subgoal_r = self.reward_subgoal_PAIR(node.subgoal_set, subgoal_set)
-        goal_r = self.reward_goal(node.s)
-        # Cycle_cost = self.reward_cycle(node)
-
-        return subgoal_r + goal_r  #  + Cycle_cost
 
     def generate_barrier(self):
         self.barrier = set()
@@ -209,13 +197,13 @@ class HighLevelGrids:
                 for j in range(barrier_height):
                     self.barrier.add((barrier_x + i, barrier_y + j))
 
-    def is_barrier(self, x, y):  # barrier for grid world
+    def is_barrier(self, x, y):  # barrier for grid world. Only use at level 1
         if x < 0 or y < 0 or x >= self.l1_cols or y >= self.l1_rows:
             return True  # Outside of the grid is considered a barrier
-        for barrier in self.barrier:
-            if (x, y) == barrier:
-                return True  # Inside the barrier region
-        return False  # Not a barrier
+        
+        if (x, y) in self.barrier:
+            return True
+        return False
 
     def plot_grid(self, level):
         fig, ax = plt.subplots(figsize=(3, 3))
