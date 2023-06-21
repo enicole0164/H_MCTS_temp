@@ -109,7 +109,7 @@ class HighLevelGrids3:
 
     def get_possible_Action(self, s):
         level, x, y = s
-        possible_A = set()
+        possible_A = []  # set()
         
         # Check the neighboring cells in all directions
         for dx, dy in self.A_space:
@@ -119,7 +119,8 @@ class HighLevelGrids3:
             # Check if the new position is within the grid boundaries
             if 0 <= new_x < self.cols[level] and 0 <= new_y < self.rows[level]:
                 if level != 1 or not self.is_barrier(new_x, new_y):
-                    possible_A.add((level, dx, dy))
+                    # possible_A.add((level, dx, dy))
+                    possible_A.append((level, dx, dy))
 
         return possible_A
 
@@ -131,17 +132,21 @@ class HighLevelGrids3:
         if (dx, dy) not in self.A_space:
             raise Exception("Invalid action")
 
-        next_x, next_y = x + dx, y + dy
+        map_x, map_y = hierarchy_map(level_curr=level,
+                                     level2move=level_a,
+                                     pos=(x, y))
+        
+        next_x, next_y = map_x + dx, map_y + dy
 
         # Clip the next position to ensure it stays within the grid boundaries
         next_x = np.clip(next_x, 0, self.cols[level] - 1)
         next_y = np.clip(next_y, 0, self.rows[level] - 1)
 
         # barrier is only detected at level 1
-        if level == 1 and self.is_barrier(next_x, next_y):
-            return (level, x, y)
+        if level_a == 1 and self.is_barrier(next_x, next_y):
+            return (level_a, x, y)
 
-        return (level, next_x, next_y)
+        return (level_a, next_x, next_y)
 
     def calculate_d2Goal(self, s):
         level, x, y = s

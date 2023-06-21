@@ -20,7 +20,7 @@ class H_Node_HW3:
         self.totalReward = 0.0
         self.achieved_subgoal = []
 
-        self.untried_Actions = self.getPossibleActions()
+        self.untried_Actions = deepcopy(self.getPossibleActions())
 
         self.set_R_status()  # set self.isRoot
         self.set_T_status()  # set self.isTerminal
@@ -78,6 +78,7 @@ class H_Node_HW3:
 
     # Check the state belongs Cycle or not
     def checkCycle(self):
+        # self.isCycle=False
         if self.s[0] != 1:  # Allow cycle for high level
             self.isCycle = False
         else:  # level at 1
