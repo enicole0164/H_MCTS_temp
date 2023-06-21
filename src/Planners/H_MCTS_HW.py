@@ -17,7 +17,6 @@ class H_MCTS_HW:  # HW: HeeSang
         l1_goal_reward=10,
         l1_subgoal_reward=2,
         action_cost=(-1) * 2,
-        cycle_penalty=(-1) * 0,  # NOT fixed yet.
         iter_Limit=10000,
         explorationConstant=1 / math.sqrt(2),  # 1 / math.sqrt(2)
         random_seed=25,
@@ -45,7 +44,6 @@ class H_MCTS_HW:  # HW: HeeSang
             l1_goal_reward,
             l1_subgoal_reward,
             action_cost,
-            cycle_penalty,
             random_seed,
             num_barrier,
         )
@@ -64,7 +62,6 @@ class H_MCTS_HW:  # HW: HeeSang
         l1_goal_reward=10,
         l1_subgoal_reward=2,
         action_cost=(-1) * 2,
-        cycle_penalty=(-1) * 100,
         random_seed=25,
         num_barrier=10,
     ):
@@ -76,7 +73,6 @@ class H_MCTS_HW:  # HW: HeeSang
             l1_goal_reward,
             l1_subgoal_reward,
             action_cost,
-            cycle_penalty,
             random_seed,
             num_barrier,
         )
@@ -155,9 +151,6 @@ class H_MCTS_HW:  # HW: HeeSang
         return node
 
     def expand(self, node: H_Node_HW):
-    
-        
-        
         # randomly choose the action from possible action
         action = random.choice(list(node.untried_Actions))
 

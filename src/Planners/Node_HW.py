@@ -6,7 +6,7 @@ from src.Env.utils import hierarchy_map
 
 class H_Node_HW:
     def __init__(self, s: tuple, env: HighLevelGrids, parent=None):
-        self.s = s  # (level, x, y)
+        self.s = s  # state: (level, x, y)
         self.env = env
         self.H_level = self.env.H_level
         self.set_High_state()
@@ -14,15 +14,7 @@ class H_Node_HW:
         self.parent = parent
         self.children = dict()  # key: action, value: children
         
-        if parent is None:  # Root
-            self.traj = []
-            self.traj_dict = {self.H_level: []}
-            
-        else:  # non-Root
-            self.traj = deepcopy(parent.traj)
-            self.traj.append(s)
-            self.traj_dict = deepcopy(parent.traj_dict)
-            self.set_traj_dict()
+        self.set_traj()
 
         self.numVisits = 0
         self.totalReward = 0.0
@@ -30,17 +22,27 @@ class H_Node_HW:
 
         self.untried_Actions = self.getPossibleActions()
 
-        self.set_R_status()
-        self.set_T_status()
+        self.set_R_status()  # set self.isRoot
+        self.set_T_status()  # set self.isTerminal
         self.get_distance()
-        # self.set_subgoals()
 
         # NOT terminal -> CAN have children
         # terminal -> CANNOT have children
         self.isFullyExpanded = self.isTerminal
         
-        self.checkCycle()
-        self.CheckExtendable()
+        self.checkCycle()       # set self.isCycle, self.untried_Actions
+        self.CheckExtendable()  # set self.isExtendable
+        
+    def set_traj(self):
+        if self.parent is None:  # Root
+            self.traj = []
+            self.traj_dict = {self.H_level: []}
+            
+        else:  # non-Root
+            self.traj = deepcopy(self.parent.traj)
+            self.traj.append(self.s)
+            self.traj_dict = deepcopy(self.parent.traj_dict)
+            self.set_traj_dict()
 
     # set Root status
     def set_R_status(self):
@@ -65,12 +67,13 @@ class H_Node_HW:
     def step(self, action):  # -> state
         return self.env.step(self.s, action)
 
+    # Do not consider cycle
     def getPossibleActions(self):
         return self.env.possible_Action_dict[self.s]
 
-    # only implement at init
+    # Check the state belongs Cycle or not
     def checkCycle(self):
-        if self.s[0] != 1:
+        if self.s[0] != 1:  # Allow cycle for high level
             self.isCycle = False
             return
         self.untried_Actions = [
@@ -84,7 +87,8 @@ class H_Node_HW:
             )  # cannot try action (belong to trajectory)
         else:
             self.isCycle = False
-            
+    
+    # Set high level state
     def set_High_state(self):
         self.level_pos = dict()
         for level in range(self.s[0], self.H_level + 1):
@@ -115,7 +119,8 @@ class H_Node_HW:
                             self.expand_untried_Actions(level=obj_state[0])
                             self.subgoal_set.add(subgoal_traj[1:])
                         self.achieved_subgoal.append(subgoal_traj[0])
-                        
+    
+    # Expand the extendable node's untried actions into high-level actions for Exploration
     def expand_untried_Actions(self, expandLevel: int):
         if expandLevel == 1:
             raise Exception('wrong level input')
@@ -124,28 +129,3 @@ class H_Node_HW:
                 s = self.level_pos[expandLevel]
                 possible_A = self.env.get_possible_Action(s)
                 self.untried_Actions.extend(possible_A)
-        
-        
-    
-    # def set_subgoals(self):
-    #     self.subgoal_set = set()
-        
-    #     if self.parent is None:  # Root node
-    #         return
-
-    #     # non-Root node
-    #     for subgoal_traj in self.parent.subgoal_set:
-    #         l, x, y = subgoal_traj[0]
-    #         map_x, map_y = hierarchy_map(
-    #                 level_curr=self.s[0],
-    #                 level2move=l,
-    #                 pos=(self.s[1], self.s[2]),
-    #             )
-    #         if (x, y) == (map_x, map_y):
-    #             if len(subgoal_traj) == 1:
-    #                 return
-    #             else:                    
-    #                 self.subgoal_set.add(subgoal_traj[1:])
-    #                 return
-    #     self.subgoal_set = self.parent.subgoal_set
-        

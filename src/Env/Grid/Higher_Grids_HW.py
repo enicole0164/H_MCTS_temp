@@ -21,7 +21,6 @@ class HighLevelGrids:
         l1_goal_reward=20,
         l1_subgoal_reward=4,
         action_cost=(-1) * 4,
-        cycle_penalty=(-1) * 20,
         random_seed=26,
         num_barrier=10,
     ):
@@ -38,7 +37,6 @@ class HighLevelGrids:
         self.l1_goal_reward = l1_goal_reward
         self.l1_subgoal_reward = l1_subgoal_reward
         self.action_cost = action_cost
-        self.cycle_penalty = cycle_penalty
 
         np.random.seed(random_seed)  # Fix seed
 
@@ -179,12 +177,6 @@ class HighLevelGrids:
         
         return subgoal_r_sum
 
-    def reward_cycle(self, node):
-        if node.isCycle:  # node is Cycle
-            return self.cycle_penalty
-        else:
-            return 0
-
     # reward function
     def calculate_reward(self, node):
         subgoal_r = self.reward_subgoal(node)
@@ -193,16 +185,15 @@ class HighLevelGrids:
         # No cost when achieve subgoal
         if goal_r < 0 and subgoal_r != 0:
             goal_r = 0
-        Cycle_cost = self.reward_cycle(node)
 
-        return subgoal_r + goal_r + Cycle_cost
+        return subgoal_r + goal_r
     
     def calculate_reward_PAIR(self, node, subgoal_set):
         subgoal_r = self.reward_subgoal_PAIR(node.subgoal_set, subgoal_set)
         goal_r = self.reward_goal(node.s)
-        Cycle_cost = self.reward_cycle(node)
+        # Cycle_cost = self.reward_cycle(node)
 
-        return subgoal_r + goal_r + Cycle_cost
+        return subgoal_r + goal_r  #  + Cycle_cost
 
     def generate_barrier(self):
         self.barrier = set()
