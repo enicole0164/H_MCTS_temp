@@ -3,11 +3,11 @@ from copy import deepcopy
 import math
 import random
 
-from src.Env.Grid.Higher_Grids_HW import HighLevelGrids
-from src.Planners.Node_HW import H_Node_HW
+from src.Env.Grid.Higher_Grids_HW import HighLevelGrids2
+from src.Planners.H_MCTS_level2.Node import H_Node
 
 
-class H_MCTS_HW:  # HW: HeeSang
+class H_MCTS:
     def __init__(
         self,
         grid_setting,  # l1_rows, l1_cols, l1_width, l1_height
@@ -21,12 +21,12 @@ class H_MCTS_HW:  # HW: HeeSang
         explorationConstant=1 / math.sqrt(2),  # 1 / math.sqrt(2)
         random_seed=25,
         num_barrier=15,
-        gamma=1
+        gamma=1,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
         self.iteration = 0
-        
+
         self.gamma = gamma
 
         self.l1_rows, self.l1_cols = grid_setting[0], grid_setting[1]
@@ -65,7 +65,7 @@ class H_MCTS_HW:  # HW: HeeSang
         random_seed=25,
         num_barrier=10,
     ):
-        self.env = HighLevelGrids(
+        self.env = HighLevelGrids2(
             grid_setting,
             H_level,
             A_space,
@@ -85,7 +85,7 @@ class H_MCTS_HW:  # HW: HeeSang
         )
 
     def set_Root(self):
-        self.root = H_Node_HW(self.init_s, deepcopy(self.env), parent=None)
+        self.root = H_Node(self.init_s, deepcopy(self.env), parent=None)
 
     # while loop in pseudo code (replace by for loop)
     def search(self):
@@ -96,9 +96,9 @@ class H_MCTS_HW:  # HW: HeeSang
             path = self.executeRound()
             if path is not None:
                 success = True
-                break
+                return path, success, i + 1
 
-        return path, success, i + 1
+        return None, False, i + 1
 
     # One Simulation
     def executeRound(self):
@@ -112,14 +112,14 @@ class H_MCTS_HW:  # HW: HeeSang
         if node.isCycle:
             self.delete_cycle(node)
             return
-        
+
         # Found the path
         if node.isTerminal:
             if len(self.success_traj[node.s[0]]) == 0:  # first path at level node.s[0]
                 if cur_root_level > 1:  # FOUND high level path
                     self.Root_renew()  # ROOT level down
                     cur_root_level -= 1
-                    
+
                 elif cur_root_level == 1:  # FOUND the route at level 1
                     return node.traj
 
@@ -132,14 +132,14 @@ class H_MCTS_HW:  # HW: HeeSang
         self.backpropagate(node=node, node_start=node_start)  # , reward=reward)
 
     # Only operate When find the path of high-level
-    def delete_child(self, node_start: H_Node_HW, subgoal_traj: list):  
+    def delete_child(self, node_start: H_Node, subgoal_traj: list):
         for action, child in node_start.children.items():
             if child.s == subgoal_traj[0]:
                 del node_start.children[action]
                 break
-            
+
     # SELECTLEAF in pseudo code
-    def selectNode(self, node: H_Node_HW):
+    def selectNode(self, node: H_Node):
         while not node.isTerminal and not node.isCycle:
             if node.isFullyExpanded:
                 node = self.getBestChild(node, self.explorationConstant)
@@ -148,11 +148,11 @@ class H_MCTS_HW:  # HW: HeeSang
 
         return node
 
-    def expand(self, node: H_Node_HW):
+    def expand(self, node: H_Node):
         action = random.choice(list(node.untried_Actions))
         next_s = node.step(action)
 
-        new_Node = H_Node_HW(s=next_s, env=deepcopy(self.env), parent=node)
+        new_Node = H_Node(s=next_s, env=deepcopy(self.env), parent=node)
         node.untried_Actions.remove(action)
         node.children[action] = new_Node
 
@@ -161,7 +161,7 @@ class H_MCTS_HW:  # HW: HeeSang
 
         return new_Node
 
-    def checkFullExpand(self, node: H_Node_HW):
+    def checkFullExpand(self, node: H_Node):
         if len(node.untried_Actions) == 0:
             node.isFullyExpanded = True
 
@@ -175,7 +175,7 @@ class H_MCTS_HW:  # HW: HeeSang
         self.root.s = root_state
         if new_root_level == 1:  # NOT allow ACTION stay (0, 0)
             self.root.env = self.env
-            self.root.untried_Actions = self.root.getPossibleActions()
+            self.root.untried_Actions = deepcopy(self.root.getPossibleActions())
             self.root.traj = [root_state]
             self.root.traj_dict[new_root_level] = [root_state[1:]]
 
@@ -183,7 +183,7 @@ class H_MCTS_HW:  # HW: HeeSang
             # self.root.env = self.root_env
             self.root.env = self.env
 
-            self.root.untried_Actions = self.root.getPossibleActions()
+            self.root.untried_Actions = deepcopy(self.root.getPossibleActions())
             self.root.traj_dict[new_root_level] = []
 
         self.root.isFullyExpanded = False
@@ -191,8 +191,14 @@ class H_MCTS_HW:  # HW: HeeSang
         self.root.totalReward = 0.0
         self.root.numVisits = 0
 
-    def backpropagate(self, node: H_Node_HW, node_start: H_Node_HW):
+    def backpropagate(self, node: H_Node, node_start: H_Node):
         reward = self.getReward(node)
+
+        if node is node_start:
+            node.numVisits += 1
+            node.totalReward += reward
+            return
+
         while True:  # root = parent is None
             node.numVisits += 1
             node.totalReward += reward
@@ -200,13 +206,19 @@ class H_MCTS_HW:  # HW: HeeSang
             if node is node_start:  # if node is self.root:
                 node.numVisits += 1
                 break
-            
+
             reward = self.gamma * reward
             reward += self.getReward(node)
-    
-    def getBestChild(self, node: H_Node_HW, explorationValue: float):
+
+    def getBestChild(self, node: H_Node, explorationValue: float):
         bestValue = float("-inf")
         bestNodes = []
+        if not node.children.values():
+            print(node.traj)
+            raise Exception(
+                f"No CHILD AT {node.s, node.untried_Actions, node.achieved_subgoal, node.subgoal_set}"
+            )
+
         for child in node.children.values():
             # calculate UCT value
             nodeValue = (
@@ -222,33 +234,36 @@ class H_MCTS_HW:  # HW: HeeSang
         return random.choice(bestNodes)
 
     # route from root to bestChild
-    def getAction(self, parent: H_Node_HW, child: H_Node_HW):
+    def getAction(self, parent: H_Node, child: H_Node):
         for action, node in parent.children.items():
             if node is child:
                 return action
 
         raise ValueError("there is no relation between parent and child")
 
-    def getReward(self, node: H_Node_HW):
+    def getReward(self, node: H_Node):
         return self.env.calculate_reward(node=node)
 
-    def delete_cycle(self, node: H_Node_HW):        
+    def delete_cycle(self, node: H_Node):
         if node.isCycle:
-            while len(node.children) == 0 and not node.untried_Actions:
+            while (
+                not [child for child in node.children.values() if child.s[0] == 1]
+            ) and (not [a for a in node.untried_Actions if a[0] == 1]):
                 # Prune the node from its parent
                 for action, child in node.parent.children.items():
-                    if child.s == node.s:
+                    if child == node:
                         del node.parent.children[action]  # prune parent to node
                         node = node.parent
                         break
-        
-    def SetNewSubgoal(self, node_start: H_Node_HW, subgoal_traj: list):
+
+    # When find the high-level path
+    def SetNewSubgoal(self, node_start: H_Node, subgoal_traj: list):
         node_start.subgoal_set.add(tuple(subgoal_traj))
-        
+
     # Find the start node (Root or Extendable)
-    def Backtrace(self, node: H_Node_HW):
+    def Backtrace(self, node: H_Node):
         traj = []
         while (not node.isRoot) and (not node.isExtendable):
             traj.insert(0, node.s)  # leaf to extendable, leaf to root
             node = node.parent
-        return node, traj        
+        return node, traj

@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from src.Env.Grid.Higher_Grids_HW3 import HighLevelGrids3
+from src.Env.Grid.Higher_Grids_HW import HighLevelGrids3
 from src.Env.utils import hierarchy_map
 
 

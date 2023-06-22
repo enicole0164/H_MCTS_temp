@@ -1,10 +1,10 @@
 from copy import deepcopy
 
-from src.Env.Grid.Higher_Grids_HW3 import HighLevelGrids3
+from src.Env.Grid.Higher_Grids_HW import HighLevelGrids3
 from src.Env.utils import hierarchy_map
 
 
-class H_Node_HW3:
+class H_Node_HW:
     def __init__(self, s: tuple, env: HighLevelGrids3, parent=None):
         self.s = s  # state: (level, x, y)
         self.env = env
