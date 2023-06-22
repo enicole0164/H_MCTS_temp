@@ -12,6 +12,8 @@ class H_Node_HW:
         self.set_High_state()
         
         self.parent = parent
+        self.parent_level()
+        
         self.children = dict()  # key: action, value: children
         
         self.set_traj()
@@ -49,6 +51,11 @@ class H_Node_HW:
             self.traj_dict = deepcopy(self.parent.traj_dict)
             self.set_traj_dict()
 
+    def parent_level(self):
+        if self.parent is not None:  # Non-Root
+            if self.parent.s[0] > self.s[0]:  # parent level is bigger then child level
+                raise Exception('wrong parent level')
+                
     # set Root status
     def set_R_status(self):
         if self.parent is None:
@@ -115,6 +122,9 @@ class H_Node_HW:
         if self.parent is not None:
             for subgoal_traj in self.parent.subgoal_set:
                 obj_state = subgoal_traj[0]
+                if self.s[0] >= obj_state[0]:
+                    continue 
+                
                 state = self.level_pos[obj_state[0]]
                 if state != obj_state:
                     continue

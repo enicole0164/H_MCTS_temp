@@ -115,6 +115,9 @@ class H_Node:
         if self.parent is not None:
             for subgoal_traj in self.parent.subgoal_set:
                 obj_state = subgoal_traj[0]
+                if self.s[0] >= obj_state[0]:
+                    continue 
+                
                 state = self.level_pos[obj_state[0]]
                 if state != obj_state:
                     continue

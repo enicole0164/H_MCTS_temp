@@ -261,9 +261,12 @@ class H_MCTS_HW:
         node_start.subgoal_set.add(tuple(subgoal_traj))
 
     # Find the start node (Root or Extendable)
-    def Backtrace(self, node: H_Node_HW):
+    def Backtrace(self, node: H_Node_HW):  # not extendable extendable and high level.
+        start_level = node.s[0]
         traj = []
-        while (not node.isRoot) and (not node.isExtendable):
+        # while (not node.isRoot) and (not node.isExtendable or node.s < start_level):
+        while not (node.isRoot or (node.isExtendable and node.s[0] < start_level)): 
+
             traj.insert(0, node.s)  # leaf to extendable, leaf to root
             node = node.parent
         return node, traj
