@@ -78,7 +78,7 @@ class HighLevelGrids3:
             distance = abs(start_x - goal_x) + abs(start_y - goal_y)
             
             # At least distance >= 2, start and goal does not belong barrier
-            if distance > 2 and start not in self.barrier and goal not in self.barrier:  # distance > 1
+            if distance > 1 and start not in self.barrier and goal not in self.barrier:  # distance > 1
                 return start, goal
 
     def generate_start_goal(self):
