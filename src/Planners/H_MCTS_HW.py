@@ -33,6 +33,9 @@ class H_MCTS_HW:
         self.l1_width, self.l1_height = grid_setting[2], grid_setting[3]
         self.A_space = A_space
         self.RS = RS
+        
+        self.level2 = 0
+        self.level1 = 0
 
         self.explorationConstant = explorationConstant
 
@@ -106,6 +109,11 @@ class H_MCTS_HW:
 
         # Select Leaf
         node = self.selectNode(self.root)
+        if node.s[0] == 1:
+            self.level1 += 1
+        elif node.s[0] == 2:
+            self.level2 += 1
+        
         node_start, subgoal_traj = self.Backtrace(node)
 
         # Delete Node if Cycle
@@ -129,8 +137,9 @@ class H_MCTS_HW:
 
             self.success_traj[node.s[0]].add(tuple(node.traj))
 
-        self.backpropagate(node=node, node_start=node_start)  # , reward=reward)
-
+        # self.backpropagate(node=node, node_start=self.root)
+        self.backpropagate(node=node, node_start=node_start)
+        
     # Only operate When find the path of high-level
     def delete_child(self, node_start: H_Node_HW, subgoal_traj: list):
         for action, child in node_start.children.items():
@@ -205,6 +214,7 @@ class H_MCTS_HW:
             node = node.parent
             if node is node_start:  # if node is self.root:
                 node.numVisits += 1
+                # node.totalReward += reward
                 break
 
             reward = self.gamma * reward
@@ -264,9 +274,8 @@ class H_MCTS_HW:
     def Backtrace(self, node: H_Node_HW):  # not extendable extendable and high level.
         start_level = node.s[0]
         traj = []
-        # while (not node.isRoot) and (not node.isExtendable or node.s < start_level):
+        # while not (node.isRoot or node.isExtendable):
         while not (node.isRoot or (node.isExtendable and node.s[0] < start_level)): 
-
             traj.insert(0, node.s)  # leaf to extendable, leaf to root
             node = node.parent
         return node, traj

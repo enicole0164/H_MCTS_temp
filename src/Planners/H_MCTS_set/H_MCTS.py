@@ -4,10 +4,10 @@ import math
 import random
 
 from src.Env.Grid.Higher_Grids import HighLevelGrids
-from src.Planners.H_MCTS_add.Node import H_Node
+from src.Planners.H_MCTS_set.Node import H_Node
 
 
-class H_MCTS:
+class H_MCTS_set:
     def __init__(
         self,
         grid_setting,  # l1_rows, l1_cols, l1_width, l1_height
@@ -17,7 +17,6 @@ class H_MCTS:
         l1_goal_reward=10,
         l1_subgoal_reward=2,
         action_cost=(-1) * 2,
-        cycle_penalty=(-1) * 50,
         iter_Limit=10000,
         explorationConstant=1 / math.sqrt(2),  # 1 / math.sqrt(2)
         random_seed=25,
@@ -45,7 +44,6 @@ class H_MCTS:
             l1_goal_reward,
             l1_subgoal_reward,
             action_cost,
-            cycle_penalty,
             random_seed,
             num_barrier,
         )
@@ -64,7 +62,6 @@ class H_MCTS:
         l1_goal_reward=10,
         l1_subgoal_reward=2,
         action_cost=(-1) * 2,
-        cycle_penalty=(-1) * 20,
         random_seed=25,
         num_barrier=10,
     ):
@@ -76,7 +73,6 @@ class H_MCTS:
             l1_goal_reward,
             l1_subgoal_reward,
             action_cost,
-            cycle_penalty,
             random_seed,
             num_barrier,
         )
@@ -103,26 +99,16 @@ class H_MCTS:
 
     # while loop in pseudo code (replace by for loop)
     def search(self):
-        root_Performance = []
+        suceess = False
         self.set_Root()  # set root and its subgoal ( destination at high level)
 
         for i in range(self.searchLimit):
-            self.executeRound()
-            root_Performance.append(self.root.totalReward / self.root.numVisits)
+            path = self.executeRound()
+            if path is not None:
+                success = True
+                return path, success, i + 1
 
-        node = self.root
-        best_traj = [node.s]
-        while len(node.children.keys()) != 0:
-            node = self.getBestChild(node, 0)
-            best_traj.append(node.s)
-
-        if best_traj[-1][0] == 1:
-            if (best_traj[-1][1], best_traj[-1][2]) == self.env.goal_dict[
-                1
-            ]:  # find feasible path
-                return best_traj, root_Performance, True
-
-        return best_traj, root_Performance, False
+        return None, False, i + 1
 
     # One Simulation
     def executeRound(self):
@@ -130,21 +116,25 @@ class H_MCTS:
 
         # Select Leaf
         node = self.selectNode(self.root)
+        # Delete Node if Cycle
+        if node.isCycle:
+            self.delete_cycle(node)
+            return
 
         if node.isTerminal:
             # Root go low level and set subgoal
-            if len(self.success_traj[node.s[0]]) == 0 and cur_root_level != 1:
-                self.Root_renew()  # level down
-                cur_root_level -= 1
+            if len(self.success_traj[node.s[0]]) == 0:
+                if cur_root_level > 1:
+                    self.Root_renew()  # level down
+                    cur_root_level -= 1
+                elif cur_root_level == 1:  # FOUND the route at level 1
+                    return node.traj
 
             if node.s[0] > cur_root_level:
                 print("subgoal Increased, {}".format(node.traj))
 
-                self.root.subgoal_set.update(node.traj)
-                pruned_node = self.delete_child(target_state=node.traj[0])
-
-                # print(pruned_node.s)
-
+            self.root.subgoal_set.update(node.traj)
+            self.delete_child(node.traj[0])
             self.success_traj[node.s[0]].add(tuple(node.traj))
 
         # Expand Multi Level
@@ -154,10 +144,9 @@ class H_MCTS:
     def delete_child(self, target_state):
         for A, child in list(self.root.children.items()):
             if child.s == target_state:
-                pruned_node = self.root.children[A]
                 del self.root.children[A]
-                return pruned_node
-
+                break
+                
     # SELECTLEAF in pseudo code
     def selectNode(self, node: H_Node):
         while not node.isTerminal and not node.isCycle:
@@ -251,11 +240,15 @@ class H_MCTS:
 
     def getReward(self, node: H_Node):
         return self.env.calculate_reward(node=node, subgoal_set=node.parent.subgoal_set)
-
-    # def checkFailure(self, node):
-
-    # def extendable_subgoal(self, node: H_Node):
-    #     # means arrive at subgoal point
-    #     if node.high_level_terminal is True and node.level1_terminal is False:
-    #         # give reward and give high-level node for exploration
-    #         node.
+    
+    def delete_cycle(self, node: H_Node):
+        if node.isCycle:
+            while (
+                not [child for child in node.children.values() if child.s[0] == 1]
+            ) and (not [a for a in node.untried_Actions if a[0] == 1]):
+                # Prune the node from its parent
+                for action, child in node.parent.children.items():
+                    if child == node:
+                        del node.parent.children[action]  # prune parent to node
+                        node = node.parent
+                        break

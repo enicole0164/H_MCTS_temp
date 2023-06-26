@@ -205,6 +205,7 @@ class H_MCTS:
             node = node.parent
             if node is node_start:  # if node is self.root:
                 node.numVisits += 1
+                node.totalReward += reward
                 break
 
             reward = self.gamma * reward
@@ -264,7 +265,8 @@ class H_MCTS:
     def Backtrace(self, node: H_Node):
         start_level = node.s[0]
         traj = []
-        while not (node.isRoot or (node.isExtendable and node.s[0] < start_level)): 
+        while not (node.isRoot or node.isExtendable):
+        # while not (node.isRoot or (node.isExtendable and node.s[0] < start_level)): 
             traj.insert(0, node.s)  # leaf to extendable, leaf to root
             node = node.parent
         return node, traj
