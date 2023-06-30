@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..utils import hierarchy_map, check_both_power_of_RS
+from src.Env.utils import hierarchy_map_cont
 
 
 class HighLevelGrids2:
@@ -22,6 +23,7 @@ class HighLevelGrids2:
         action_cost=(-1) * 2,
         random_seed=26,
         num_barrier=10,
+        
     ):
         self.l1_rows = grid_settings[0]
         self.l1_cols = grid_settings[1]
@@ -48,7 +50,7 @@ class HighLevelGrids2:
             else:
                 raise Exception('wrong highest level input')
         
-        self.levels = [i for i in range(1, self.H_level + 1)]
+        self.levels = [i for i in range(0, self.H_level + 1)]
 
         # set level 1 barrier
         self.num_barrier = num_barrier  # random.randint(3, 6)
@@ -61,36 +63,38 @@ class HighLevelGrids2:
         self.set_rewards()  # key: level, value: reward
         
         # num of cols and rows for each level
-        self.cols = {l: int(self.l1_cols / self.RS**(l-1)) for l in self.levels}
-        self.rows = {l: int(self.l1_rows / self.RS**(l-1)) for l in self.levels}
+        self.cols = {l: int(self.l1_cols / self.RS**(l-1)) for l in self.levels[1:]}
+        self.rows = {l: int(self.l1_rows / self.RS**(l-1)) for l in self.levels[1:]}
         
         self.set_possible_Action_dict()
 
     def random_start_goal(self):
         while True:
-            start_x, goal_x = np.random.randint(0, self.l1_cols, 2)
-            start_y, goal_y = np.random.randint(0, self.l1_rows, 2)
-            # start_x, start_y = (0, 0)
-            # goal_x, goal_y = (self.l1_cols-1, self.l1_rows-1)
+            start_x = np.random.uniform(0, self.total_width)
+            start_y = np.random.uniform(0, self.total_height)
+            goal_x = np.random.uniform(0, self.total_width)
+            goal_y = np.random.uniform(0, self.total_height)
+            distance = math.sqrt((start_x - goal_x) ** 2 + (start_y - goal_y) ** 2)
+            if (
+                distance > 3
+                and not self.is_barrier(start_x, start_y)
+                and not self.is_barrier(goal_x, goal_y)
+            ):
+                return (start_x, start_y), (goal_x, goal_y)
             
-            start = (start_x, start_y)
-            goal = (goal_x, goal_y)
-            distance = abs(start_x - goal_x) + abs(start_y - goal_y)
-            
-            # At least distance >= 2, start and goal does not belong barrier
-            if distance > 2 and start not in self.barrier and goal not in self.barrier:  # distance > 1
-                return start, goal
-
     def generate_start_goal(self):
         start, goal = self.random_start_goal()
-        start_dict, goal_dict = {1: start}, {1: goal}
-
-        for level in self.levels[1:]:
-            start_dict[level] = hierarchy_map(level_curr=1, level2move=level, pos=start)
-            goal_dict[level] = hierarchy_map(level_curr=1, level2move=level, pos=goal)
+        start_dict, goal_dict = {0: start}, {0: goal}
+        for level in self.levels:
+            start_dict[level] = hierarchy_map_cont(level_curr=0, level2move=level, pos=start)
+            goal_dict[level] = hierarchy_map_cont(level_curr=0, level2move=level, pos=goal)
 
         return start_dict, goal_dict
-
+    
+    def inherit_start_goal(self, start_dict, goal_dict):
+        self.start_dict = start_dict
+        self.goal_dict = goal_dict
+    
     def set_rewards(self):
         self.r_dict = {l: self.l1_goal_reward / (self.RS ** (l - 1)) for l in self.levels}
         self.sub_r_dict = {l: self.l1_subgoal_reward / (self.RS ** (l - 1)) for l in self.levels}
@@ -99,7 +103,7 @@ class HighLevelGrids2:
     def set_possible_Action_dict(self):
         self.possible_Action_dict = dict()
         
-        for l in self.levels:
+        for l in self.levels[1:]:
             for i in range(self.cols[l]):
                 for j in range(self.rows[l]):
                     s = (l, i, j)
@@ -112,6 +116,7 @@ class HighLevelGrids2:
         possible_A = []  # set()
         
         # Check the neighboring cells in all directions
+        # print(self.A_space)
         for dx, dy in self.A_space:
             new_x = x + dx
             new_y = y + dy
@@ -364,7 +369,7 @@ class HighLevelGrids3:
     def set_possible_Action_dict(self):
         self.possible_Action_dict = dict()
         
-        for l in self.levels:
+        for l in self.levels[1:]:
             for i in range(self.cols[l]):
                 for j in range(self.rows[l]):
                     s = (l, i, j)

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .Higher_Grid_w_agent import high_Grid_w_agent
-from .l0_Grid_w_agent import lowest_Grid_w_agent
+from .Cont_Grid import lowest_Grid_w_agent
 
 
 # for get the highest level (as the heesang's paper)

@@ -43,6 +43,32 @@ def hierarchy_map(level_curr, level2move, pos, RS=2):
 
     return hier_x, hier_y
 
+def hierarchy_map_cont(level_curr, level2move, pos, RS=2):
+    x, y = pos
+    
+    # continuous Action space
+    if level_curr == 0:
+        if level2move == 0:
+            hier_x = x
+            hier_y = y
+        else:
+            
+            level_up = level2move - level_curr - 1
+            if level_up < 0:
+                raise ValueError('wrong level input')
+            
+            hier_x = int(int(x / RS) / (RS ** level_up))
+            hier_y = int(int(y / RS) / (RS ** level_up))
+    # discrete Action space
+    else:
+        level_up = level2move - level_curr
+        if level_up < 0:
+            raise ValueError('wrong level input')
+        hier_x = int(x / (RS ** level_up))
+        hier_y = int(y / (RS ** level_up))
+
+    return hier_x, hier_y
+
 def check_both_power_of_RS(a, b, RS=2):
     largest_power = largest_power_gcd(a, b, RS)
     if (a == b) and (a == RS**largest_power):

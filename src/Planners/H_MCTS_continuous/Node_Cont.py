@@ -1,11 +1,12 @@
 from copy import deepcopy
 
 from src.Env.Grid.Higher_Grids_HW import HighLevelGrids3
-from src.Env.utils import hierarchy_map
+from src.Env.Grid.Cont_Grid import Continuous_Grid
+from src.Env.utils import hierarchy_map_cont
 
 
-class H_Node_HW:
-    def __init__(self, s: tuple, env: HighLevelGrids3, parent=None):
+class H_Node_Cont:
+    def __init__(self, s: tuple, env: HighLevelGrids3 or Continuous_Grid, parent=None):
         self.s = s  # state: (level, x, y)
         self.env = env
         self.H_level = self.env.H_level
@@ -22,8 +23,11 @@ class H_Node_HW:
         self.totalReward = 0.0
         self.achieved_subgoal = []
 
-        self.untried_Actions = deepcopy(self.getPossibleActions())
-
+        if self.s[0] > 0:
+            self.untried_Actions = deepcopy(self.getPossibleActions())
+        else:
+            pass
+        
         self.set_R_status()  # set self.isRoot
         self.set_T_status()  # set self.isTerminal
         self.get_distance()
@@ -32,12 +36,11 @@ class H_Node_HW:
         # terminal -> CANNOT have children
         self.isFullyExpanded = self.isTerminal
         
-        self.checkCycle()       # set self.isCycle, self.untried_Actions
         self.CheckExtendable()  # set self.isExtendable
         
     def set_traj(self):
         if self.parent is None:  # Root
-            if self.s[0] == 1:   # Root at level 1
+            if self.s[0] == 0:   # Root at level 1
                 self.traj = [self.s]
                 self.traj_dict = {self.H_level: [self.s[1:]]}
             
@@ -68,8 +71,11 @@ class H_Node_HW:
         if self.isRoot == True:  # Root CANNOT be terminal node
             self.isTerminal = False
         else:  # level regardless
-            self.isTerminal = self.env.check_goal_pos(self.s)
-
+            if self.s[0] > 0:
+                self.isTerminal = self.env.check_goal_pos(self.s)
+            else:
+                self.isTerminal = self.env.check_termination(self.s)
+            
     def get_distance(self):  # at its level, v_{approx}
         self.distance = self.env.calculate_d2Goal(s=self.s)
 
@@ -83,28 +89,11 @@ class H_Node_HW:
     def getPossibleActions(self):
         return self.env.possible_Action_dict[self.s]
 
-    # Check the state belongs Cycle or not
-    def checkCycle(self):
-        # self.isCycle=False
-        if self.s[0] != 1:  # Allow cycle for high level
-            self.isCycle = False
-        else:  # level at 1
-            self.untried_Actions = [
-                action
-                for action in self.untried_Actions
-                if self.step(action=action) not in self.traj
-            ]
-            if not self.isTerminal:
-                # No possible Action
-                self.isCycle = (len(self.untried_Actions) == 0)
-            else:
-                self.isCycle = False
-    
     # Set high level state
     def set_High_state(self):
         self.level_pos = dict()
         for level in range(self.s[0], self.H_level + 1):
-            high_x, high_y = hierarchy_map(level_curr=self.s[0], level2move=level, pos=(self.s[1], self.s[2]))
+            high_x, high_y = hierarchy_map_cont(level_curr=self.s[0], level2move=level, pos=(self.s[1], self.s[2]))
             self.level_pos[level] = (level, high_x, high_y)
             
     def set_traj_dict(self):  # for high level trajectories
@@ -158,3 +147,6 @@ class H_Node_HW:
                 s = self.level_pos[expandLevel]
                 possible_A = self.env.get_possible_Action(s)
                 self.untried_Actions.extend(possible_A)
+                
+    def getPossibleAction(self):
+        return self.env.get_possible_Action(self.s)
