@@ -4,6 +4,8 @@ from src.Env.Grid.Higher_Grids_HW import HighLevelGrids3
 from src.Env.Grid.Cont_Grid import Continuous_Grid
 from src.Env.utils import hierarchy_map_cont
 
+from math import sqrt
+
 
 class H_Node_Cont:
     def __init__(self, s: tuple, env: HighLevelGrids3 or Continuous_Grid, parent=None):
@@ -36,7 +38,12 @@ class H_Node_Cont:
         # terminal -> CANNOT have children
         self.isFullyExpanded = self.isTerminal
         
-        self.CheckExtendable()  # set self.isExtendable
+        if self.s[0] > 0:
+            self.CheckExtendable()  # set self.isExtendable
+        else:
+            # we have to check on achieved subgoal
+            # self.isExtendable = False
+            self.foo()
         
     def set_traj(self):
         if self.parent is None:  # Root
@@ -68,12 +75,20 @@ class H_Node_Cont:
 
     # Set the node belongs to terminal or not, level regardless
     def set_T_status(self):
+        # print("set_T_status", self.s)
         if self.isRoot == True:  # Root CANNOT be terminal node
             self.isTerminal = False
         else:  # level regardless
             if self.s[0] > 0:
                 self.isTerminal = self.env.check_goal_pos(self.s)
             else:
+                # print("self.env.check_termination", self.env.check_termination(self.s))
+                goal_x, goal_y = self.env.goal_dict[0]
+                level, x, y = self.s
+                distance = sqrt(
+                    (x - goal_x) ** 2 + (y - goal_y) ** 2
+                )
+                # print("distance:", distance)
                 self.isTerminal = self.env.check_termination(self.s)
             
     def get_distance(self):  # at its level, v_{approx}
@@ -137,9 +152,38 @@ class H_Node_Cont:
             # No achieved subgoal -> inherit subgoal_set
             if len(self.achieved_subgoal) == 0:
                 self.subgoal_set = self.parent.subgoal_set
-                    
+    
+    def foo(self):
+        self.subgoal_set = set()
+        self.isExtendable = False
+
+        if self.parent is not None:
+            for subgoal_traj in self.parent.subgoal_set:
+                obj_state = subgoal_traj[0]
+                if self.s[0] >= obj_state[0]:
+                    continue
+                # print("level_pos:", self.level_pos)
+                state = self.level_pos[obj_state[0]]
+                # print("FOO: state", state)
+                if state != obj_state:
+                    continue
+                else:
+                    # assert(False)
+                    if obj_state[0] == self.s[0] + 1:
+                        self.achieved_subgoal.append(subgoal_traj[0])
+                        if len(subgoal_traj) > 1:
+                            # self.isExtendable = True
+                            self.subgoal_set.add(subgoal_traj[1:])
+                            print(self.subgoal_set)
+                    else:
+                        assert(False)
+
+            if len(self.achieved_subgoal) == 0:
+                self.subgoal_set = self.parent.subgoal_set
+
     # Expand the extendable node's untried actions into high-level actions for Exploration
     def expand_untried_Actions(self, expandLevel: int):
+        # print("inside expand untried Actions")
         if expandLevel == 1:
             raise Exception('wrong level input')
         else:  # level > 1

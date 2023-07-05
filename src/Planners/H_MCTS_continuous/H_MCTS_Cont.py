@@ -65,7 +65,8 @@ class H_MCTS_Cont:
         random_seed=25,
         num_barrier=10,
     ):  
-        self.cont_env = Continuous_Grid(grid_settings=grid_setting,
+        self.cont_env = Continuous_Grid(
+            grid_settings=grid_setting,
             H_level=H_level,
             random_seed=random_seed,
             num_barrier=num_barrier)
@@ -91,6 +92,7 @@ class H_MCTS_Cont:
 
     # while loop in pseudo code (replace by for loop)
     def search(self):
+        # print("In search, ...")
         success = False
         self.set_Root()  # set root and its subgoal ( destination at high level)
 
@@ -108,11 +110,19 @@ class H_MCTS_Cont:
 
         # Select Leaf
         node = self.selectNode(self.root)
+        # print("node state: ", node.s)
         
         node_start, subgoal_traj = self.Backtrace(node)
+        # print("subgoal_traj: ", subgoal_traj)
+        if len(node.achieved_subgoal) != 0:
+            print("node.achieved subgoal: ", node.achieved_subgoal)
+            print("node.s: ", node.s)
 
         # Found the path
         if node.isTerminal:
+            print("FOUND PATH IN LEVEL ",subgoal_traj[0][0] , subgoal_traj)
+            # print("ACHIEVED SUBGOAL", node.achieved_subgoal)
+            # print("SUBGOAL SET", node.subgoal_set)
             if len(self.success_traj[node.s[0]]) == 0:  # first path at level node.s[0]
                 if cur_root_level > 0:  # FOUND high level path
                     self.Root_renew()  # ROOT level down
@@ -141,7 +151,17 @@ class H_MCTS_Cont:
     def selectNode(self, node: H_Node_Cont):
         while not node.isTerminal:  # and not node.isCycle:
             if node.isFullyExpanded:
+                if node.s[0] == 0:
+                    assert(False) # never chooses BestChild for node.s[0] == 0
                 node = self.getBestChild(node, self.explorationConstant)
+            elif node.s[0] == 0:
+                w = random.uniform(0, 1)
+                # Exploitation
+                if w > 0.05 and node.children:
+                    node = self.getBestChild(node, self.explorationConstant)
+                # Explortation
+                else:
+                    return self.expand(node)
             else:
                 return self.expand(node)
 
@@ -217,20 +237,21 @@ class H_MCTS_Cont:
                 break
 
             reward = self.gamma * reward
-            reward += self.getReward(node)
+            if node.s[0] != 0:
+                reward += self.getReward(node)
 
     def getBestChild(self, node: H_Node_Cont, explorationValue: float):
         bestValue = float("-inf")
         bestNodes = []
         if not node.children.values():
-            print(node.traj)
+            # print(node.traj)
             raise Exception(
                 f"No CHILD AT {node.s, node.untried_Actions, node.achieved_subgoal, node.subgoal_set}"
             )
 
         for child in node.children.values():
             # calculate UCT value
-            nodeValue = (
+            nodeValue = ( # calculate the best child
                 child.totalReward / child.numVisits
                 + explorationValue
                 * math.sqrt(2 * math.log(node.numVisits) / child.numVisits)
@@ -251,7 +272,10 @@ class H_MCTS_Cont:
         raise ValueError("there is no relation between parent and child")
 
     def getReward(self, node: H_Node_Cont):
-        return self.env.calculate_reward(node=node)
+        if node.s[0] != 0:
+            return self.env.calculate_reward(node=node)
+        else:
+            return self.cont_env.calculate_reward(node=node)
 
     # When find the high-level path
     def SetNewSubgoal(self, node_start: H_Node_Cont, subgoal_traj: list):

@@ -22,7 +22,7 @@ class Continuous_Grid:
                     (0, -1),
                 }, 
         RS: int=2,
-        l1_goal_reward=20,
+        l1_goal_reward=10,
         l1_subgoal_reward=4,
         action_cost=(-1) * 2,
         cont_action_radius: int=1,
@@ -56,6 +56,9 @@ class Continuous_Grid:
 
         self.barrier = self.generate_barrier()
         self.start_dict, self.goal_dict = self.generate_start_goal()
+
+        # Reward of goal and subgoal for each level
+        self.set_rewards()
 
         self.is_terminated = False
         self.radius = goal_radius
@@ -226,12 +229,15 @@ class Continuous_Grid:
     
     def reward_goal(self, s):
         level, x, y = s
+        # plevel, px, py = ps
+        # start_x, start_y = self.start_dict[level]
         goal_x, goal_y = self.goal_dict[level]
         
         if level > 0:
             return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
         else:
             return - self.calculate_d2Goal(s)
+            # return - 10 * (self.calculate_d2Goal(s)/self.calculate_d2Goal((level, start_x, start_y))) - 0 * (abs(x-px) + abs(y-py))
 
     def reward_subgoal(self, node):
         subgoal_r_sum = 0
