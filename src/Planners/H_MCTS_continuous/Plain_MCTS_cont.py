@@ -112,18 +112,22 @@ class Plain_MCTS_Cont:
 
         self.gamma = gamma
 
+        #Set alpha
+        self.alpha = 0.05
+        self.constant_c =10
+
         self.l1_rows, self.l1_cols = grid_setting[0], grid_setting[1]
         self.l1_width, self.l1_height = grid_setting[2], grid_setting[3]
         self.A_space = A_space
         self.RS = RS
-        
-        self.level2 = 0
-        self.level1 = 0
-
         self.explorationConstant = explorationConstant
 
-        self.set_env(grid_setting=grid_setting, H_level=H_level,
-                     random_seed=random_seed, num_barrier=num_barrier)
+        self.set_env(
+            grid_setting=grid_setting,
+            H_level=H_level,
+            random_seed=random_seed,
+            num_barrier=num_barrier
+        )
 
         # Assume that we know the env
         self.success_traj = {level: set() for level in self.env.levels}
@@ -188,6 +192,8 @@ class Plain_MCTS_Cont:
     # SELECTLEAF in pseudo code
     def selectNode(self, node: Plain_Node_cont):
         while not node.isTerminal:
+            numVisits = node.numVisits
+            expand_limit = round(self.constant_c * numVisits**self.alpha)
             w = random.uniform(0, 1)
             if w > 0.05 and node.children:
                 node = self.getBestChild(node, self.explorationConstant)
