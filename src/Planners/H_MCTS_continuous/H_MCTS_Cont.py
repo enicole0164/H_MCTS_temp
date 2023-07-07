@@ -30,6 +30,10 @@ class H_MCTS_Cont:
 
         self.gamma = gamma
 
+        # Set alpha
+        self.alpha = 0.05
+        self.constant_c = 10
+
         self.l1_rows, self.l1_cols = grid_setting[0], grid_setting[1]
         self.l1_width, self.l1_height = grid_setting[2], grid_setting[3]
         self.A_space = A_space
@@ -117,6 +121,12 @@ class H_MCTS_Cont:
         if len(node.achieved_subgoal) != 0:
             print("node.achieved subgoal: ", node.achieved_subgoal)
             print("node.s: ", node.s)
+            print("node.parent: ", node.parent.s)
+
+        # Delete Node if Cycle
+        if node.s[0] !=0 and node.isCycle:
+            self.delete_cycle(node)
+            return
 
         # Found the path
         if node.isTerminal:
@@ -155,9 +165,14 @@ class H_MCTS_Cont:
                     assert(False) # never chooses BestChild for node.s[0] == 0
                 node = self.getBestChild(node, self.explorationConstant)
             elif node.s[0] == 0:
+                numVisits = node.numVisits
+                expand_limit = round(self.constant_c * (numVisits**self.alpha))
+                # print("expand_limit", expand_limit)
+                # print("node.children", len(node.children))
+
                 w = random.uniform(0, 1)
                 # Exploitation
-                if w > 0.05 and node.children:
+                if len(node.children) == expand_limit or (w > 0.05 and node.children):
                     node = self.getBestChild(node, self.explorationConstant)
                 # Explortation
                 else:
