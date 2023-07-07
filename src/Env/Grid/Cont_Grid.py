@@ -76,12 +76,14 @@ class Continuous_Grid:
     def get_possible_Action(self, s):
         level, x, y = s
         if level == 0:
+            # Sample Action
             r = np.random.uniform(0, self.cont_action_radius)
             theta = np.random.uniform(0, 2 * math.pi)
             x = r * math.cos(theta)
             y = r * math.sin(theta)
             action = (level, x, y)
-        else:  # discrete level
+        else:  
+            # In Discrete level
             possible_A = []
             for dx, dy in self.A_space:
                 new_x = x + dx
@@ -89,12 +91,11 @@ class Continuous_Grid:
 
                 # Check if the new position is within the grid boundaries
                 if 0 <= new_x < self.cols[level] and 0 <= new_y < self.rows[level]:
-                    if level != 1 or not self.is_barrier(new_x, new_y):
+                    # if level != 1 or not self.is_barrier(new_x, new_y):
                         # possible_A.add((level, dx, dy))
-                        possible_A.append((level, dx, dy))
+                    possible_A.append((level, dx, dy))
                         
             action = random.choice(possible_A)
-
         return action
             
     def random_start_goal(self):
@@ -148,9 +149,9 @@ class Continuous_Grid:
         for region in self.barrier:
             region_x, region_y, region_width, region_height = region
             if (
-                region_x <= x < region_x + region_width
-                and region_y <= y < region_y + region_height
-            ):
+                region_x < x < region_x + region_width 
+                and region_y < y < region_y + region_height
+            ): # Boundaries are not barrier
                 return True  # Inside the barrier region
         return False  # Not a barrier
     
@@ -171,11 +172,11 @@ class Continuous_Grid:
             next_x, next_y = map_x + dx, map_y + dy
         else:  # level_a = 0
             
-            next_x = np.clip(x + dx, 0, self.total_width)
-            next_y = np.clip(y + dy, 0, self.total_height)
+            # next_x = np.clip(x + dx, 0, self.total_width)
+            # next_y = np.clip(y + dy, 0, self.total_height)
 
             next_x, next_y = self.find_farthest_point(
-                x, y, next_x, next_y
+                x, y, dx, dy
             )
 
         new_s = (level_a, next_x, next_y)
@@ -184,20 +185,118 @@ class Continuous_Grid:
         return new_s
         
     # x1, y1: prev, x2, y2: next
-    def find_farthest_point(self, prev_x, prev_y, next_x, next_y):
+    def find_farthest_point(self, prev_x, prev_y, dx, dy):
         farthest_x, farthest_y = prev_x, prev_y
 
-        # Iterate along the line segment and find the farthest point
-        for t in np.linspace(0, 1, self.barrier_find_segment):
-            x = prev_x + (next_x - prev_x) * t
-            y = prev_y + (next_y - prev_y) * t
+        theta = math.atan2(dy, dx)
+        r = math.sqrt(dx**2 + dy**2)
 
-            if not self.is_barrier(x, y):  # x, y does NOT belongs to barrier
-                farthest_x, farthest_y = x, y
-            else:  # x, y belongs to barrier
-                return farthest_x, farthest_y
+        line = ((prev_x, prev_y), (prev_x + dx, prev_y + dy))
+        colliding_point = []
+        # Check if any barrier point is in the dx/dy box
+        for region in self.barrier:
+            region_x, region_y, region_width, region_height = region
+            l_l = ((region_x, region_y), (region_x, region_y + region_height))
+            r_l = ((region_x + region_width, region_y), (region_x + region_width, region_y + region_height))
+            d_l = ((region_x, region_y), (region_x + region_width, region_y))
+            u_l = ((region_x, region_y + region_height), (region_x + region_width, region_y + region_height))
+            
+            intersect_l, intersect_l_point = self.line_intersection(line, l_l)
+            intersect_r, intersect_r_point = self.line_intersection(line, r_l)
+            intersect_d, intersect_d_point = self.line_intersection(line, d_l)
+            intersect_u, intersect_u_point = self.line_intersection(line, u_l)
+
+            if intersect_l:
+                colliding_point.append(intersect_l_point)
+            elif intersect_r:
+                colliding_point.append(intersect_r_point)
+            elif intersect_u:
+                colliding_point.append(intersect_u_point)
+            elif intersect_d:
+                colliding_point.append(intersect_d_point)
+
+        # Consider the boundary of grid
+        left_wall = ((0, 0), (0, self.total_height))
+        right_wall = ((self.total_width, 0), (self.total_width, self.total_height))
+        down_wall = ((0, 0), (self.total_width, 0))
+        up_wall = ((0, self.total_height), (self.total_width, self.total_height))
+        
+        intersect_lw, intersect_lw_point = self.line_intersection(line, left_wall)
+        intersect_rw, intersect_rw_point = self.line_intersection(line, right_wall)
+        intersect_uw, intersect_uw_point = self.line_intersection(line, up_wall)
+        intersect_dw, intersect_dw_point = self.line_intersection(line, down_wall)
+
+        if intersect_lw:
+            colliding_point.append(intersect_lw_point)
+        elif intersect_rw:
+            colliding_point.append(intersect_rw_point)
+        elif intersect_uw:
+            colliding_point.append(intersect_uw_point)
+        elif intersect_dw:
+            colliding_point.append(intersect_dw_point)
+        
+        if len(colliding_point) == 0:
+            farthest_x += dx
+            farthest_y += dy
+        else:
+            farthest_x, farthest_y = self.closest_point((prev_x, prev_y), colliding_point)
 
         return farthest_x, farthest_y
+
+    def line_intersection(self, l1 ,l2):
+        p1, p2 = l1
+        p3, p4 = l2
+        def on_segment(p, q, r):
+            if (q[0] <= max(p[0], r[0]) and q[0] >= min(p[0], r[0]) and
+                    q[1] <= max(p[1], r[1]) and q[1] >= min(p[1], r[1])):
+                return True
+            return False
+
+        def orientation(p, q, r):
+            val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1])
+            if val == 0:
+                return 0  # Collinear
+            elif val > 0:
+                return 1  # Clockwise orientation
+            else:
+                return 2  # Counterclockwise orientation
+
+        o1 = orientation(p1, p2, p3)
+        o2 = orientation(p1, p2, p4)
+        o3 = orientation(p3, p4, p1)
+        o4 = orientation(p3, p4, p2)
+
+        # General case for intersection
+        if o1 != o2 and o3 != o4:
+            intersecting_x = ((p1[0] * p2[1] - p1[1] * p2[0]) * (p3[0] - p4[0]) - (p1[0] - p2[0]) * (p3[0] * p4[1] - p3[1] * p4[0])) / ((p1[0] - p2[0]) * (p3[1] - p4[1]) - (p1[1] - p2[1]) * (p3[0] - p4[0]))
+            intersecting_y = ((p1[0] * p2[1] - p1[1] * p2[0]) * (p3[1] - p4[1]) - (p1[1] - p2[1]) * (p3[0] * p4[1] - p3[1] * p4[0])) / ((p1[0] - p2[0]) * (p3[1] - p4[1]) - (p1[1] - p2[1]) * (p3[0] - p4[0]))
+            intersecting_point = (intersecting_x, intersecting_y)
+            return True, intersecting_point
+
+        # Special cases for collinear points
+        if o1 == 0 and on_segment(p1, p3, p2):
+            return True, p3
+        if o2 == 0 and on_segment(p1, p4, p2):
+            return True, p4
+        if o3 == 0 and on_segment(p3, p1, p4):
+            return True, p1
+        if o4 == 0 and on_segment(p3, p2, p4):
+            return True, p2
+
+        return False, None
+
+
+    def closest_point(self, p0, list_p):
+        closest_distance = math.inf
+        closest_point = None
+
+        for point in list_p:
+            distance = math.sqrt((point[0] - p0[0])**2 + (point[1] - p0[1])**2)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_point = point
+
+        return closest_point
 
     def check_termination(self, s):  # for level 1
         level, x, y = s
