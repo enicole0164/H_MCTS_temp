@@ -102,6 +102,8 @@ class Plain_MCTS_Cont:
         l1_action_cost=(-1) * 2,
         iter_Limit=10000,
         explorationConstant=1 / math.sqrt(2),  # 1 / math.sqrt(2)
+        alpha=0.05,
+        constant_c=10,
         random_seed=25,
         num_barrier=15,
         gamma=1,
@@ -112,9 +114,9 @@ class Plain_MCTS_Cont:
 
         self.gamma = gamma
 
-        #Set alpha
-        self.alpha = 0.05
-        self.constant_c =10
+        # constant for PW
+        self.alpha = alpha
+        self.constant_c = constant_c
 
         self.l1_rows, self.l1_cols = grid_setting[0], grid_setting[1]
         self.l1_width, self.l1_height = grid_setting[2], grid_setting[3]
@@ -164,7 +166,7 @@ class Plain_MCTS_Cont:
         self.root = Plain_Node_cont(self.init_s, deepcopy(self.env), parent=None)
 
     # while loop in pseudo code (replace by for loop)
-    def search(self):
+    def search(self, save_path=None):
         success = False
         self.set_Root()  # set root and its subgoal ( destination at high level)
 
@@ -172,8 +174,10 @@ class Plain_MCTS_Cont:
             path, suceed = self.executeRound()
             if suceed:
                 success = True
+                self.env.plot_grid_tree(self.root, save_path=save_path)
                 return path, success, i + 1
 
+        self.env.plot_grid_tree(self.root, save_path=save_path)
         return None, False, i + 1
 
     # One Simulation
@@ -193,9 +197,16 @@ class Plain_MCTS_Cont:
     def selectNode(self, node: Plain_Node_cont):
         while not node.isTerminal:
             numVisits = node.numVisits
-            expand_limit = round(self.constant_c * numVisits**self.alpha)
-            w = random.uniform(0, 1)
-            if w > 0.05 and node.children:
+            if numVisits == 0:
+                expand_limit = self.constant_c
+            else:
+                expand_limit = round(self.constant_c * (numVisits**self.alpha))
+            
+            # w = random.uniform(0, 1)
+            # if len(node.children) == expand_limit or (w > 0.05 and node.children):
+
+            # Expand until expand_limit then choose best child.
+            if len(node.children) >= expand_limit:
                 node = self.getBestChild(node, self.explorationConstant)
             else:
                 return self.expand(node)
@@ -225,11 +236,10 @@ class Plain_MCTS_Cont:
             node = node.parent
             if node is self.root:  # if node is self.root:
                 node.numVisits += 1
-                # node.totalReward += reward
+                node.totalReward += reward
                 break
 
             reward = self.gamma * reward
-            # reward += self.getReward(node)
 
     def getBestChild(self, node: Plain_Node_cont, explorationValue: float):
         bestValue = float("-inf")
@@ -245,7 +255,7 @@ class Plain_MCTS_Cont:
             nodeValue = (
                 child.totalReward / child.numVisits
                 + explorationValue
-                * math.sqrt(2 * math.log(node.numVisits) / child.numVisits)
+                * math.sqrt(math.log(node.numVisits) / child.numVisits)
             )
             if nodeValue > bestValue:
                 bestValue = nodeValue

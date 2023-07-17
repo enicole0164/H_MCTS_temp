@@ -97,6 +97,24 @@ class Continuous_Grid:
                         
             action = random.choice(possible_A)
         return action
+    
+    def get_possible_Action_for_expand(self, s):
+        level, x, y = s
+        if level == 0:
+            assert(False)
+        else:  
+            # In Discrete level
+            possible_A = []
+            for dx, dy in self.A_space:
+                new_x = x + dx
+                new_y = y + dy
+
+                # Check if the new position is within the grid boundaries
+                if 0 <= new_x < self.cols[level] and 0 <= new_y < self.rows[level]:
+                    # if level != 1 or not self.is_barrier(new_x, new_y):
+                        # possible_A.add((level, dx, dy))
+                    possible_A.append((level, dx, dy))           
+        return possible_A
             
     def random_start_goal(self):
         while True:
@@ -107,9 +125,11 @@ class Continuous_Grid:
             distance = math.sqrt((start_x - goal_x) ** 2 + (start_y - goal_y) ** 2)
             if (
                 distance > 3
+                # distance > 7
                 and not self.is_barrier(start_x, start_y)
                 and not self.is_barrier(goal_x, goal_y)
             ):
+                # print(distance)
                 return (start_x, start_y), (goal_x, goal_y)
             
     def generate_start_goal(self):
@@ -186,6 +206,7 @@ class Continuous_Grid:
         
     # x1, y1: prev, x2, y2: next
     def find_farthest_point(self, prev_x, prev_y, dx, dy):
+        small_const= 0.000001
         farthest_x, farthest_y = prev_x, prev_y
 
         theta = math.atan2(dy, dx)
@@ -207,13 +228,17 @@ class Continuous_Grid:
             intersect_u, intersect_u_point = self.line_intersection(line, u_l)
 
             if intersect_l:
-                colliding_point.append(intersect_l_point)
-            elif intersect_r:
-                colliding_point.append(intersect_r_point)
-            elif intersect_u:
-                colliding_point.append(intersect_u_point)
-            elif intersect_d:
-                colliding_point.append(intersect_d_point)
+                (px, py) = intersect_l_point
+                colliding_point.append((px - small_const, py))
+            if intersect_r:
+                (px, py) = intersect_r_point
+                colliding_point.append((px + small_const, py))
+            if intersect_u:
+                (px, py) = intersect_u_point
+                colliding_point.append((px, py + small_const))
+            if intersect_d:
+                (px, py) = intersect_d_point
+                colliding_point.append((px, py - small_const))
 
         # Consider the boundary of grid
         left_wall = ((0, 0), (0, self.total_height))
@@ -227,13 +252,17 @@ class Continuous_Grid:
         intersect_dw, intersect_dw_point = self.line_intersection(line, down_wall)
 
         if intersect_lw:
-            colliding_point.append(intersect_lw_point)
+            (px, py) = intersect_lw_point
+            colliding_point.append((px + small_const, py))
         elif intersect_rw:
-            colliding_point.append(intersect_rw_point)
+            (px, py) = intersect_rw_point
+            colliding_point.append((px - small_const, py))
         elif intersect_uw:
-            colliding_point.append(intersect_uw_point)
+            (px, py) = intersect_uw_point
+            colliding_point.append((px, py - small_const))
         elif intersect_dw:
-            colliding_point.append(intersect_dw_point)
+            (px, py) = intersect_dw_point
+            colliding_point.append((px, py + small_const))
         
         if len(colliding_point) == 0:
             farthest_x += dx
@@ -326,16 +355,19 @@ class Continuous_Grid:
         start_x, start_y = self.start_dict[level]
         return (x, y) == (start_x, start_y)
     
-    def reward_goal(self, s):
+    def reward_goal(self, s, ps):
         level, x, y = s
-        # plevel, px, py = ps
+        plevel, px, py = ps
         # start_x, start_y = self.start_dict[level]
         goal_x, goal_y = self.goal_dict[level]
         
         if level > 0:
             return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
         else:
-            return - self.calculate_d2Goal(s)
+            # only 거리 not action 
+            if plevel != level:
+                assert(False)
+            return - self.calculate_d2Goal(s) - math.sqrt(abs(x-px)**2 + abs(y-py)**2)
             # return - 10 * (self.calculate_d2Goal(s)/self.calculate_d2Goal((level, start_x, start_y))) - 0 * (abs(x-px) + abs(y-py))
 
     def reward_subgoal(self, node):
@@ -349,7 +381,7 @@ class Continuous_Grid:
     # reward function
     def calculate_reward(self, node):
         subgoal_r = self.reward_subgoal(node)
-        goal_r = self.reward_goal(node.s)
+        goal_r = self.reward_goal(node.s, node.parent.s)
         
         # No cost when achieve subgoal
         if goal_r < 0 and subgoal_r != 0:
@@ -357,7 +389,7 @@ class Continuous_Grid:
 
         return subgoal_r + goal_r
 
-    def plot_grid(self, level=0, traj= []):
+    def plot_grid(self, level=0, traj=[], save_path=None):
         fig, ax = plt.subplots()
 
         # Draw the grid lines with adjusted linewidth
@@ -427,5 +459,79 @@ class Continuous_Grid:
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
         plt.title(f"Grid (Level {level})")
 
-        # Show the plot
-        plt.show()
+        if save_path:
+            plt.savefig(save_path)
+            plt.close()
+        else:
+            # Show the plot
+            # pass
+            plt.show()
+
+    def draw_graph(self, node, ax=None):
+        if ax is None:
+            ax = plt.gca()
+        ax.plot(node.s[1], node.s[2], 'c.')
+        for child in node.children.values():
+            if child.s[0] != 0:
+                continue
+            ax.plot([node.s[1], child.s[1]], [node.s[2], child.s[2]], 'c-')
+            self.draw_graph(child, ax)
+
+    def plot_grid_tree(self, root, level=0, save_path=None):
+        fig, ax = plt.subplots()
+
+        # Draw the grid lines with adjusted linewidth
+        for i in range(self.l1_rows + 1):
+            y = i * self.l1_height
+            plt.plot([0, self.total_width], [y, y], color="black", linewidth=0.5)
+
+        for i in range(self.l1_cols + 1):
+            x = i * self.l1_width
+            plt.plot([x, x], [0, self.total_height], color="black", linewidth=0.5)
+
+        # Plot the start and destination points with larger size
+        plt.scatter(
+            self.start_dict[level][0], self.start_dict[level][1], color="green", marker="o", s=25, label="Start"
+        )
+        plt.scatter(
+            self.goal_dict[level][0], self.goal_dict[level][1], color="red", marker="o", s=25, label="Goal"
+        )
+
+        # Plot barrier regions with the same color
+        if level <= 1:
+            for region in self.barrier:
+                region_x, region_y, region_width, region_height = region
+                rect = plt.Rectangle(
+                    (region_x, region_y),
+                    region_width,
+                    region_height,
+                    color="red",
+                    alpha=0.3,
+                )
+                ax.add_patch(rect)
+
+        # Plot the agent's path with a different color and marker
+        if root.s[0] != 0:
+            return
+        else:
+            self.draw_graph(root, ax)
+
+        plt.gca().set_aspect("equal", adjustable="box")
+
+        # Set the tick marks to align with the grid
+        ax.set_xticks(np.arange(0, self.total_width + self.l1_width, self.l1_width))
+        ax.set_yticks(
+            np.arange(0, self.total_height + self.l1_height, self.l1_height)
+        )
+
+        # Move the legend outside the figure
+        plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+        plt.title(f"Grid (Level {level})")
+
+        if save_path:
+            plt.savefig(save_path)
+            plt.close()
+        else:
+            # Show the plot
+            # pass
+            plt.show()
