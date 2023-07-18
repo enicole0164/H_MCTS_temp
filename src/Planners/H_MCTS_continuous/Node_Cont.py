@@ -162,7 +162,10 @@ class H_Node_Cont:
                         self.achieved_subgoal.append(subgoal_traj[0])
                         if len(subgoal_traj) > 1:
                             self.isExtendable = True
-                            self.expand_untried_Actions(obj_state[0])
+                            # Check if they do the same as subgoal_traj[1]
+                            # subgoal_traj[1] - subgoal_traj[0] = action
+                            exclude_Action = (obj_state[0], subgoal_traj[1][1] - subgoal_traj[0][1], subgoal_traj[1][2] - subgoal_traj[0][2])
+                            self.expand_untried_Actions(obj_state[0], exclude_Action)
                             # Previous
                             self.subgoal_set.add(subgoal_traj[1:])
                         
@@ -250,17 +253,18 @@ class H_Node_Cont:
                         if obj_state[0] == self.s[0] + 1:
                             for j in range(i+1):
                                 self.achieved_subgoal.append(subgoal_traj[j])
-                            if len(subgoal_traj) > 1:
+                            if len(subgoal_traj[i:]) > 1:
                                 if extendable_at_level0:
                                     self.isExtendable = True
-                                    self.expand_untried_Actions_level0(obj_state[0])
+                                    exclude_Action = (obj_state[0], subgoal_traj[i+1][1] - subgoal_traj[i][1], subgoal_traj[i+1][2] - subgoal_traj[i][2])
+                                    self.expand_untried_Actions_level0(obj_state[0], exclude_Action)
                                 self.subgoal_set.add(subgoal_traj[i+1:])
                             break
                                 # print(self.subgoal_set)
                         elif obj_state[0] > self.s[0] + 1:
                             for j in range(i+1):
                                 self.achieved_subgoal.append(subgoal_traj[j])
-                            if len(subgoal_traj) > 1:
+                            if len(subgoal_traj[i:]) > 1:
                                 self.subgoal_set.add(subgoal_traj[i+1:])
                             break
                         else:  # obj_state[0] < self.s[0] + 1
@@ -319,24 +323,25 @@ class H_Node_Cont:
             s = self.level_pos[expandLevel]
             possible_A = self.env.get_possible_Action(s)
             if exclude_Action:
-                for action in exclude_Action:
-                    possible_A.remove(action)
+                possible_A.remove(exclude_Action)
             self.untried_Actions.extend(possible_A)
 
-    # # Expand the extendable node's untried actions into high-level actions for Exploration
-    # def expand_untried_Actions_level0(self, expandLevel: int):
-    #     # print("inside expand untried Actions")
-    #     if expandLevel == 0:
-    #         raise Exception('wrong level input')
-    #     else:  # level > 1
-    #         print("expand untried Actions level0", self.s)
-    #         s = self.level_pos[expandLevel]
-    #         print("s", s)
+    # Expand the extendable node's untried actions into high-level actions for Exploration
+    def expand_untried_Actions_level0(self, expandLevel: int, exclude_Action=None):
+        # print("inside expand untried Actions")
+        if expandLevel == 0:
+            raise Exception('wrong level input')
+        else:  # level > 1
+            print("expand untried Actions level0", self.s)
+            s = self.level_pos[expandLevel]
+            print("s", s)
             
-    #         possible_A = self.env.get_possible_Action_for_expand(s)
-    #         print("possible_A", possible_A)
-    #         # print("possible_A", possible_A)
-    #         self.untried_Actions.extend(possible_A)
+            possible_A = self.env.get_possible_Action_for_expand(s)
+            if exclude_Action:
+                # print("ExcludeAction: ", exclude_Action)
+                possible_A.remove(exclude_Action)
+            print("possible_A", possible_A)
+            self.untried_Actions.extend(possible_A)
                 
     def getPossibleAction(self):
         return self.env.get_possible_Action(self.s)
