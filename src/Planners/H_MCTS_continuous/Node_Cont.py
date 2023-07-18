@@ -8,7 +8,7 @@ from math import sqrt
 
 
 class H_Node_Cont:
-    def __init__(self, s: tuple, env: HighLevelGrids3 or Continuous_Grid, parent=None):
+    def __init__(self, s: tuple, env: HighLevelGrids3 or Continuous_Grid, parent=None, extendable=False, extendable_at_level0=False):
         self.s = s  # state: (level, x, y)
         self.env = env
         self.H_level = self.env.H_level
@@ -27,7 +27,9 @@ class H_Node_Cont:
 
         if self.s[0] > 0:
             self.untried_Actions = deepcopy(self.getPossibleActions())
+            # print("self.untriedActions", self.untried_Actions)
         else:
+            self.untried_Actions = []
             pass
         
         self.set_R_status()  # set self.isRoot
@@ -39,11 +41,14 @@ class H_Node_Cont:
         self.isFullyExpanded = self.isTerminal
         
         if self.s[0] > 0:
-            self.CheckExtendable()  # set self.isExtendable
+            # self.checkCycle()       # set self.isCycle, self.untried_Actions
+            if not extendable:
+                self.CheckSubgoals()
+            else:
+                self.CheckExtendable()
         else:
-            # we have to check on achieved subgoal
-            # self.isExtendable = False
-            self.foo()
+            # self.foo_subgoal_may_skip(extendable_at_level0)
+            self.foo(extendable_at_level0)
         
     def set_traj(self):
         if self.parent is None:  # Root
@@ -80,6 +85,7 @@ class H_Node_Cont:
             self.isTerminal = False
         else:  # level regardless
             if self.s[0] > 0:
+                # print("check_goal_pos", self.s, self.env.goal_dict[1])
                 self.isTerminal = self.env.check_goal_pos(self.s)
             else:
                 # print("self.env.check_termination", self.env.check_termination(self.s))
@@ -104,6 +110,23 @@ class H_Node_Cont:
     def getPossibleActions(self):
         return self.env.possible_Action_dict[self.s]
 
+    # # Check the state belongs Cycle or not
+    # def checkCycle(self):
+    #     # self.isCycle=False
+    #     if self.s[0] != 1:  # Allow cycle for high level
+    #         self.isCycle = False
+    #     else:  # level at 1
+    #         self.untried_Actions = [
+    #             action
+    #             for action in self.untried_Actions
+    #             if self.step(action=action) not in self.traj
+    #         ]
+    #         if not self.isTerminal:
+    #             # No possible Action
+    #             self.isCycle = (len(self.untried_Actions) == 0)
+    #         else:
+    #             self.isCycle = False
+    
     # Set high level state
     def set_High_state(self):
         self.level_pos = dict()
@@ -125,6 +148,8 @@ class H_Node_Cont:
 
         if self.parent is not None:
             for subgoal_traj in self.parent.subgoal_set:
+                if len(subgoal_traj) == 0:
+                    continue
                 obj_state = subgoal_traj[0]
                 if self.s[0] >= obj_state[0]:
                     continue 
@@ -138,6 +163,49 @@ class H_Node_Cont:
                         if len(subgoal_traj) > 1:
                             self.isExtendable = True
                             self.expand_untried_Actions(obj_state[0])
+                            # Previous
+                            self.subgoal_set.add(subgoal_traj[1:])
+                        
+                    elif obj_state[0] > self.s[0] + 1:
+                        self.achieved_subgoal.append(subgoal_traj[0])
+                        if len(subgoal_traj) > 1:
+                            # Previous
+                            self.subgoal_set.add(subgoal_traj[1:])
+                        
+                    else:  # obj_state[0] < self.s[0] + 1
+                        # raise Exception('wrong subgoal at parent')
+                        pass
+            
+            # No achieved subgoal -> inherit subgoal_set
+            if len(self.achieved_subgoal) == 0:
+                self.subgoal_set = deepcopy(self.parent.subgoal_set)
+            else:
+                achieved_subgoal_level = set()
+                for subgoal in self.achieved_subgoal:
+                    achieved_subgoal_level.add(subgoal[0])
+                for subgoal in self.parent.subgoal_set:
+                    if len(subgoal) != 0 and subgoal[0][0] not in achieved_subgoal_level:
+                        self.subgoal_set.add(subgoal)
+    
+    def CheckSubgoals(self):
+        self.subgoal_set = set()
+        self.isExtendable = False
+
+        if self.parent is not None:
+            for subgoal_traj in self.parent.subgoal_set:
+                if len(subgoal_traj) == 0:
+                    continue
+                obj_state = subgoal_traj[0]
+                if self.s[0] >= obj_state[0]:
+                    continue 
+                
+                state = self.level_pos[obj_state[0]]
+                if state != obj_state:
+                    continue
+                else:  # state == obj_state
+                    if obj_state[0] == self.s[0] + 1:
+                        self.achieved_subgoal.append(subgoal_traj[0])
+                        if len(subgoal_traj) > 1:
                             self.subgoal_set.add(subgoal_traj[1:])
                         
                     elif obj_state[0] > self.s[0] + 1:
@@ -151,46 +219,124 @@ class H_Node_Cont:
             
             # No achieved subgoal -> inherit subgoal_set
             if len(self.achieved_subgoal) == 0:
-                self.subgoal_set = self.parent.subgoal_set
+                self.subgoal_set = deepcopy(self.parent.subgoal_set)
+            else:
+                achieved_subgoal_level = set()
+                for subgoal in self.achieved_subgoal:
+                    achieved_subgoal_level.add(subgoal[0])
+                for subgoal in self.parent.subgoal_set:
+                    if len(subgoal) != 0 and subgoal[0][0] not in achieved_subgoal_level:
+                        self.subgoal_set.add(subgoal)
     
-    def foo(self):
+    def foo(self, extendable_at_level0):
         self.subgoal_set = set()
         self.isExtendable = False
 
         if self.parent is not None:
             for subgoal_traj in self.parent.subgoal_set:
-                obj_state = subgoal_traj[0]
-                if self.s[0] >= obj_state[0]:
+                if len(subgoal_traj) == 0:
                     continue
-                # print("level_pos:", self.level_pos)
-                state = self.level_pos[obj_state[0]]
-                # print("FOO: state", state)
-                if state != obj_state:
-                    continue
-                else:
-                    # assert(False)
-                    if obj_state[0] == self.s[0] + 1:
-                        self.achieved_subgoal.append(subgoal_traj[0])
-                        if len(subgoal_traj) > 1:
-                            # self.isExtendable = True
-                            self.subgoal_set.add(subgoal_traj[1:])
-                            print(self.subgoal_set)
+                for i in range(len(subgoal_traj)):
+                    obj_state = subgoal_traj[i]
+                    if self.s[0] >= obj_state[0]:
+                        continue
+                    # print("level_pos:", self.level_pos)
+                    state = self.level_pos[obj_state[0]]
+                    # print("FOO: state", state)
+                    if state != obj_state:
+                        continue
                     else:
-                        assert(False)
+                        # assert(False)
+                        if obj_state[0] == self.s[0] + 1:
+                            for j in range(i+1):
+                                self.achieved_subgoal.append(subgoal_traj[j])
+                            if len(subgoal_traj) > 1:
+                                if extendable_at_level0:
+                                    self.isExtendable = True
+                                    self.expand_untried_Actions_level0(obj_state[0])
+                                self.subgoal_set.add(subgoal_traj[i+1:])
+                            break
+                                # print(self.subgoal_set)
+                        elif obj_state[0] > self.s[0] + 1:
+                            for j in range(i+1):
+                                self.achieved_subgoal.append(subgoal_traj[j])
+                            if len(subgoal_traj) > 1:
+                                self.subgoal_set.add(subgoal_traj[i+1:])
+                            break
+                        else:  # obj_state[0] < self.s[0] + 1
+                            # raise Exception('wrong subgoal at parent')
+                            pass
 
             if len(self.achieved_subgoal) == 0:
-                self.subgoal_set = self.parent.subgoal_set
+                self.subgoal_set = deepcopy(self.parent.subgoal_set)
+            else:
+                achieved_subgoal_level = set()
+                for subgoal in self.achieved_subgoal:
+                    achieved_subgoal_level.add(subgoal[0])
+                for subgoal in self.parent.subgoal_set:
+                    if len(subgoal) != 0 and subgoal[0][0] not in achieved_subgoal_level:
+                        self.subgoal_set.add(subgoal)
+    
+    # def foo_subgoal_may_skip(self, extendable_at_level0):
+    #     self.subgoal_set = set()
+    #     self.isExtendable = False
+
+    #     if self.parent is not None:
+    #         for subgoal_traj in self.parent.subgoal_set:
+    #             for i in range(len(subgoal_traj)):
+    #                 if len(subgoal_traj) == 0:
+    #                     continue
+    #                 obj_state = subgoal_traj[i]
+    #                 if self.s[0] >= obj_state[0]:
+    #                     continue
+    #                 state = self.level_pos[obj_state[0]]
+    #                 if state != obj_state:
+    #                     continue
+    #                 else:
+    #                     if obj_state[0] == self.s[0] + 1:
+    #                         self.achieved_subgoal.append(subgoal_traj[i])
+    #                         if len(subgoal_traj) > 1:
+    #                             if extendable_at_level0:
+    #                                 self.isExtendable = True
+    #                                 self.expand_untried_Actions_level0(obj_state[0])
+    #                             # self.isExtendable = True
+    #                             self.subgoal_set.add(subgoal_traj[i+1:])
+    #                             print(self.subgoal_set)
+    #                             break
+    #                     else:
+    #                         assert(False)
+
+    #         if len(self.achieved_subgoal) == 0:
+    #             self.subgoal_set = self.parent.subgoal_set
 
     # Expand the extendable node's untried actions into high-level actions for Exploration
-    def expand_untried_Actions(self, expandLevel: int):
+    def expand_untried_Actions(self, expandLevel: int, exclude_Action=None):
         # print("inside expand untried Actions")
         if expandLevel == 1:
             raise Exception('wrong level input')
         else:  # level > 1
-            if not self.isCycle:
-                s = self.level_pos[expandLevel]
-                possible_A = self.env.get_possible_Action(s)
-                self.untried_Actions.extend(possible_A)
+            # if not self.isCycle:
+            s = self.level_pos[expandLevel]
+            possible_A = self.env.get_possible_Action(s)
+            if exclude_Action:
+                for action in exclude_Action:
+                    possible_A.remove(action)
+            self.untried_Actions.extend(possible_A)
+
+    # # Expand the extendable node's untried actions into high-level actions for Exploration
+    # def expand_untried_Actions_level0(self, expandLevel: int):
+    #     # print("inside expand untried Actions")
+    #     if expandLevel == 0:
+    #         raise Exception('wrong level input')
+    #     else:  # level > 1
+    #         print("expand untried Actions level0", self.s)
+    #         s = self.level_pos[expandLevel]
+    #         print("s", s)
+            
+    #         possible_A = self.env.get_possible_Action_for_expand(s)
+    #         print("possible_A", possible_A)
+    #         # print("possible_A", possible_A)
+    #         self.untried_Actions.extend(possible_A)
                 
     def getPossibleAction(self):
         return self.env.get_possible_Action(self.s)
