@@ -149,10 +149,10 @@ class Continuous_Grid:
         start_x1, start_y1 = assigned_start_goal[0]
         goal_x1, goal_y1 = assigned_start_goal[1]
 
-        start_x = np.random.uniform(start_x1, start_x1+self.l1_width)
-        start_y = np.random.uniform(start_y1, start_y1+self.l1_height)
-        goal_x = np.random.uniform(goal_x1, goal_x1+self.l1_width)
-        goal_y = np.random.uniform(goal_y1, goal_y1+self.l1_height)
+        start_x = np.random.uniform(start_x1*self.l1_width, (start_x1+1)*self.l1_width)
+        start_y = np.random.uniform(start_y1*self.l1_height, (start_y1+1)*self.l1_height)
+        goal_x = np.random.uniform(goal_x1*self.l1_width, (goal_x1+1)*self.l1_width)
+        goal_y = np.random.uniform(goal_y1*self.l1_height, (goal_y1+1)*self.l1_height)
 
         return (start_x, start_y), (goal_x, goal_y)
             
