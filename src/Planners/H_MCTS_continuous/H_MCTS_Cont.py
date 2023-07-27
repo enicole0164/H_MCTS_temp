@@ -19,7 +19,8 @@ class H_MCTS_Cont:
         l1_subgoal_reward=2,
         l1_action_cost=(-1) * 2,
         iter_Limit=10000,
-        explorationConstant=1 / math.sqrt(2),  # 1 / math.sqrt(2)
+        explorationConstant_h=1 / math.sqrt(1.5),  # 1 / math.sqrt(2)
+        explorationConstant_l=1 / math.sqrt(1.5),  # 1 / math.sqrt(2)
         random_seed=25,
         num_barrier=15,
         gamma=1,
@@ -38,7 +39,8 @@ class H_MCTS_Cont:
         self.l1_width, self.l1_height = grid_setting[2], grid_setting[3]
         self.A_space = A_space
         self.RS = RS
-        self.explorationConstant = explorationConstant
+        self.explorationConstant_h = explorationConstant_h
+        self.explorationConstant_l = explorationConstant_l
 
         self.set_env(
             grid_setting,
@@ -123,11 +125,6 @@ class H_MCTS_Cont:
             print("node.s: ", node.s)
             print("node.parent: ", node.parent.s)
 
-        # Delete Node if Cycle
-        if node.s[0] !=0 and node.isCycle:
-            self.delete_cycle(node)
-            return
-
         # Found the path
         if node.isTerminal:
             print("FOUND PATH IN LEVEL ",subgoal_traj[0][0] , subgoal_traj)
@@ -161,19 +158,18 @@ class H_MCTS_Cont:
     def selectNode(self, node: H_Node_Cont):
         while not node.isTerminal:  # and not node.isCycle:
             if node.isFullyExpanded:
+                # print(node.s)
                 if node.s[0] == 0:
                     assert(False) # never chooses BestChild for node.s[0] == 0
-                node = self.getBestChild(node, self.explorationConstant)
+                node = self.getBestChild(node, self.explorationConstant_h)
             elif node.s[0] == 0:
                 numVisits = node.numVisits
                 expand_limit = round(self.constant_c * (numVisits**self.alpha))
-                # print("expand_limit", expand_limit)
-                # print("node.children", len(node.children))
 
                 w = random.uniform(0, 1)
                 # Exploitation
                 if len(node.children) == expand_limit or (w > 0.05 and node.children):
-                    node = self.getBestChild(node, self.explorationConstant)
+                    node = self.getBestChild(node, self.explorationConstant_l)
                 # Explortation
                 else:
                     return self.expand(node)
@@ -256,6 +252,7 @@ class H_MCTS_Cont:
                 reward += self.getReward(node)
 
     def getBestChild(self, node: H_Node_Cont, explorationValue: float):
+        # We can set two exploration constant for each level
         bestValue = float("-inf")
         bestNodes = []
         if not node.children.values():

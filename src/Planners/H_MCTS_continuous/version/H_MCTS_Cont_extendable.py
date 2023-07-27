@@ -113,8 +113,11 @@ class H_MCTS_Cont:
             if path is not None:
                 success = True
                 self.cont_env.plot_grid_tree(self.root, save_path=save_path)
+                # print("DRAW TREE")
+                # self.draw_tree(self.root)
                 return path, success, i + 1
-
+        # print("DRAW TREE")
+        # self.draw_tree(self.root)
         self.cont_env.plot_grid_tree(self.root, save_path=save_path)
         return None, False, i + 1
 
@@ -136,8 +139,9 @@ class H_MCTS_Cont:
         # Found the path
         if node.isTerminal:
             print("FOUND PATH IN LEVEL ",subgoal_traj[0][0] , subgoal_traj)
-            print("DRAW TREE")
-            self.draw_tree(self.root)
+            # if not node_start.isRoot:
+            #     print("DRAW TREE")
+            #     self.draw_tree(self.root)
             # print("Node_start", node_start.s)
             if len(self.success_traj[node.s[0]]) == 0:  # first path at level node.s[0]
                 if cur_root_level > 0:  # FOUND high level path
@@ -149,12 +153,21 @@ class H_MCTS_Cont:
 
             # Reset subgoal and delete subgoal route
             self.SetNewSubgoal(node_start=node_start, subgoal_traj=subgoal_traj)
+            # Extended Result
+            if not node_start.isRoot:
+                # print("BEFORE")
+                # self.draw_tree(node_start)
+                # Recursively add new subgoal to children of node_start
+                self.TraverseNAddNewSubgoal(node_start, node_start, subgoal_traj=subgoal_traj)
+                # print("AFTER")
+                # self.draw_tree(node_start)
             self.delete_child(node_start=node_start, subgoal_traj=subgoal_traj)
 
             self.success_traj[node.s[0]].add(tuple(node.traj))
 
-            print("DRAW TREE")
-            self.draw_tree(self.root)
+            # if not node_start.isRoot:
+            #     print("DRAW TREE")
+            #     self.draw_tree(self.root)
 
         # self.backpropagate(node=node, node_start=self.root)
         self.backpropagate(node=node, node_start=node_start)
@@ -200,18 +213,23 @@ class H_MCTS_Cont:
             # next_s = node.step(action)
             # Expand from 0 too
             w = random.uniform(0, 1)
-            if w < 0.9 or len(node.untried_Actions) == 0:
+            if w > self.extend_zero or len(node.untried_Actions) == 0:
                 action = node.getPossibleAction()
                 next_s = node.step(action)
             else:
                 action = random.choice(list(node.untried_Actions))
+                node.extended_level_0 += 1
                 # measure action_level
-                print("action",action)
-                print("node.untried_Actions",node.untried_Actions)
+                # print("action",action)
+                # print("node.untried_Actions",node.untried_Actions)
                 action_level = action[0]
-                higher_level_s = node.level_pos[action_level]
-                higher_level_node = H_Node_Cont(s=higher_level_s, env=deepcopy(self.env), parent=None)
-                next_s = higher_level_node.step(action)
+                if action_level not in node.level_pos.keys():
+                    action = node.getPossibleAction()
+                    next_s = node.step(action)
+                else:
+                    higher_level_s = node.level_pos[action_level]
+                    higher_level_node = H_Node_Cont(s=higher_level_s, env=deepcopy(self.env), parent=None)
+                    next_s = higher_level_node.step(action)
 
         if action[0] > 0:   
             new_Node = H_Node_Cont(s=next_s, env=deepcopy(self.env), parent=node, extendable=True, extendable_at_level0=True)
@@ -279,6 +297,24 @@ class H_MCTS_Cont:
             if node.s[0] != 0:
                 reward += self.getReward(node)
 
+    def backpropagate_wo_numVisits(self, node: H_Node_Cont, node_start: H_Node_Cont):
+        reward = self.getReward(node)
+
+        if node is node_start:
+            node.totalReward += reward
+            return
+
+        while True:  # root = parent is None
+            node.totalReward += reward
+            node = node.parent
+            if node is node_start:  # if node is self.root:
+                # node.totalReward += reward
+                break
+
+            reward = self.gamma * reward
+            if node.s[0] != 0:
+                reward += self.getReward(node)
+
     def getBestChild(self, node: H_Node_Cont, explorationValue: float):
         # We can set two exploration constant for each level
         bestValue = float("-inf")
@@ -317,22 +353,56 @@ class H_MCTS_Cont:
         else:
             return self.cont_env.calculate_reward(node=node)
 
-    # def delete_cycle(self, node: H_Node_Cont):
-    #     if node.isCycle:
-    #         while (
-    #             not [child for child in node.children.values() if child.s[0] == 1]
-    #         ) and (not [a for a in node.untried_Actions if a[0] == 1]):
-    #             # Prune the node from its parent
-    #             for action, child in node.parent.children.items():
-    #                 if child == node:
-    #                     del node.parent.children[action]  # prune parent to node
-    #                     node = node.parent
-    #                     break
-                
     # When find the high-level path
     def SetNewSubgoal(self, node_start: H_Node_Cont, subgoal_traj: list):
         node_start.subgoal_set.add(tuple(subgoal_traj))
 
+    def TraverseNAddNewSubgoal(self, node_start: H_Node_Cont, node: H_Node_Cont, subgoal_traj: list, subgoal_following=False):
+        # node_start의 자손들에게 traverse&addnewsubgoal
+        # subgoal_traj를 추가한다.
+        for child in node.children.values():
+            # 1. Check if child has reached any subgoal already
+            if len(child.achieved_subgoal) != 0:
+                continue
+            # 2. Child hasn't achieved any subgoal
+            # Check if child has achieved the subgoal_traj
+            subgoal_level = subgoal_traj[0][0]
+            if child.s[0] >= subgoal_level:
+                continue
+            high_level_child_s = child.level_pos[subgoal_level]
+            if high_level_child_s == subgoal_traj[0]:
+                # Child has achieved THE subgoal!
+                child.achieved_subgoal.append(subgoal_traj[0])
+                self.backpropagate_wo_numVisits(child, node_start)
+                subgoal_following = True
+                # Remove all the subgoals having same level with subgoal_traj
+                subgoal_to_remove = set()
+                for subgoal_seq in child.subgoal_set:
+                    if len(subgoal_seq) != 0 and subgoal_seq[0][0] == subgoal_level:
+                            subgoal_to_remove.add(subgoal_seq)
+                for subgoal_seq in subgoal_to_remove:
+                    child.subgoal_set.remove(subgoal_seq)
+                # Add the subgoal
+                child.subgoal_set.add(tuple(subgoal_traj[1:]))
+                self.TraverseNAddNewSubgoal(node_start, child, subgoal_traj[1:], subgoal_following)
+            else:
+                if not subgoal_following:
+                    # Child has opportunity
+                    child.subgoal_set.add(tuple(subgoal_traj))
+                    self.TraverseNAddNewSubgoal(node_start, child, subgoal_traj, subgoal_following)
+                else:
+                    # Remove all the subgoals having same level with subgoal_traj
+                    subgoal_to_remove = set()
+                    for subgoal_seq in child.subgoal_set:
+                        if len(subgoal_seq) != 0 and subgoal_seq[0][0] == subgoal_level:
+                                subgoal_to_remove.add(subgoal_seq)
+                    for subgoal_seq in subgoal_to_remove:
+                        child.subgoal_set.remove(subgoal_seq)
+                    # Add the subgoal
+                    child.subgoal_set.add(tuple(subgoal_traj))
+                    self.TraverseNAddNewSubgoal(node_start, child, subgoal_traj, subgoal_following)
+
+                
     # Find the start node (Root or Extendable)
     def Backtrace(self, node: H_Node_Cont):  # not extendable extendable and high level.
         start_level = node.s[0]

@@ -1,2 +1,11 @@
 **/__pycache__/
 **/.ipynb_checkpoints/
+**/experiments/
+**/experiments_past/
+**/experiments_harder_grid/
+**/experiment_older_version/
+**/experiment_code_previous/
+**/wandb/
+**/.metals/
+**/.vscode/
+**/random/

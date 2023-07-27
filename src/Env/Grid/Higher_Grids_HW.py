@@ -23,6 +23,7 @@ class HighLevelGrids2:
         action_cost=(-1) * 2,
         random_seed=26,
         num_barrier=10,
+        reward_function_weight=1,
         
     ):
         self.l1_rows = grid_settings[0]
@@ -38,6 +39,7 @@ class HighLevelGrids2:
         self.l1_goal_reward = l1_goal_reward
         self.l1_subgoal_reward = l1_subgoal_reward
         self.action_cost = action_cost
+        self.reward_function_weight = reward_function_weight
 
         np.random.seed(random_seed)  # Fix seed
 
@@ -107,8 +109,8 @@ class HighLevelGrids2:
             for i in range(self.cols[l]):
                 for j in range(self.rows[l]):
                     s = (l, i, j)
-                    if l == 1 and self.is_barrier(i, j):
-                        continue
+                    # if l == 1 and self.is_barrier(i, j):
+                    #     continue
                     self.possible_Action_dict[s] = self.get_possible_Action(s)
 
     def get_possible_Action(self, s):
@@ -123,9 +125,7 @@ class HighLevelGrids2:
 
             # Check if the new position is within the grid boundaries
             if 0 <= new_x < self.cols[level] and 0 <= new_y < self.rows[level]:
-                if level != 1 or not self.is_barrier(new_x, new_y):
-                    # possible_A.add((level, dx, dy))
-                    possible_A.append((level, dx, dy))
+                possible_A.append((level, dx, dy))
 
         return possible_A
 
@@ -147,9 +147,9 @@ class HighLevelGrids2:
         next_x = np.clip(next_x, 0, self.cols[level] - 1)
         next_y = np.clip(next_y, 0, self.rows[level] - 1)
 
-        # barrier is only detected at level 1
-        if level_a == 1 and self.is_barrier(next_x, next_y):
-            return (level_a, x, y)
+        # # barrier is only detected at level 1
+        # if level_a == 1 and self.is_barrier(next_x, next_y):
+        #     return (level_a, x, y)
 
         return (level_a, next_x, next_y)
 
@@ -172,7 +172,18 @@ class HighLevelGrids2:
     def reward_goal(self, s):
         level, x, y = s
         goal_x, goal_y = self.goal_dict[level]
-        return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
+        # self.weight = 0.2
+        return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level] - self.calculate_d2Goal(s) * 2 * level) * self.reward_function_weight
+        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level] - self.calculate_d2Goal(s)) * const
+        # Save Good
+        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level]*0.1 - (self.calculate_d2Goal(s) * 0.05))
+        # Save Good
+        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else 0
+
+    def calculate_d2Goal(self, s):
+        level, x, y = s
+        goal_x, goal_y = self.goal_dict[level]
+        return (abs(x - goal_x) + abs(y - goal_y))  # Manhattan distance
 
     def reward_subgoal(self, node):
         subgoal_r_sum = 0

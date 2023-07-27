@@ -128,7 +128,8 @@ class Plain_MCTS_Cont:
             grid_setting=grid_setting,
             H_level=H_level,
             random_seed=random_seed,
-            num_barrier=num_barrier
+            num_barrier=num_barrier,
+            goal_n_start_distance=grid_setting[4],
         )
 
         # Assume that we know the env
@@ -147,12 +148,14 @@ class Plain_MCTS_Cont:
         l1_action_cost=(-1) * 2,
         random_seed=25,
         num_barrier=10,
+        goal_n_start_distance=3,
     ):
         self.env = Continuous_Grid(
             grid_settings=grid_setting,
             H_level=H_level,
             random_seed=random_seed,
-            num_barrier=num_barrier
+            num_barrier=num_barrier,
+            goal_n_start_distance=goal_n_start_distance,
         )
 
         # Generate initial state at the highest level

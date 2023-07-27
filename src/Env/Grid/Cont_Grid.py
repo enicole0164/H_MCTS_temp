@@ -2,6 +2,7 @@ import random
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import graphviz
 
 # from .Agent import lowest_Agent
 from src.Env.utils import hierarchy_map_cont
@@ -26,7 +27,8 @@ class Continuous_Grid:
         l1_subgoal_reward=4,
         action_cost=(-1) * 2,
         cont_action_radius: int=1,
-        num_barrier: int = 10
+        num_barrier: int = 10,
+        goal_n_start_distance: int = 3,
     ):
         self.H_level = H_level
         
@@ -35,6 +37,7 @@ class Continuous_Grid:
         self.l1_width = grid_settings[2]
         self.l1_height = grid_settings[3]
         self.levels = [i for i in range(0, self.H_level + 1)]
+        self.goal_n_start_distance = goal_n_start_distance
         
         self.total_width = self.l1_cols * self.l1_width
         self.total_height = self.l1_rows * self.l1_height
@@ -124,8 +127,8 @@ class Continuous_Grid:
             goal_y = np.random.uniform(0, self.total_height)
             distance = math.sqrt((start_x - goal_x) ** 2 + (start_y - goal_y) ** 2)
             if (
-                distance > 3
-                # distance > 7
+                distance > self.goal_n_start_distance
+                # distance > 3
                 and not self.is_barrier(start_x, start_y)
                 and not self.is_barrier(goal_x, goal_y)
             ):
@@ -355,20 +358,12 @@ class Continuous_Grid:
         start_x, start_y = self.start_dict[level]
         return (x, y) == (start_x, start_y)
     
-    def reward_goal(self, s, ps):
+    def reward_goal(self, s, ps, weight=1):
         level, x, y = s
         plevel, px, py = ps
-        # start_x, start_y = self.start_dict[level]
-        goal_x, goal_y = self.goal_dict[level]
-        
-        if level > 0:
-            return self.r_dict[level] if (x, y) == (goal_x, goal_y) else self.A_cost_dict[level]
-        else:
-            # only 거리 not action 
-            if plevel != level:
-                assert(False)
-            return - self.calculate_d2Goal(s) - math.sqrt(abs(x-px)**2 + abs(y-py)**2)
-            # return - 10 * (self.calculate_d2Goal(s)/self.calculate_d2Goal((level, start_x, start_y))) - 0 * (abs(x-px) + abs(y-py))
+        return - self.calculate_d2Goal(s) - math.sqrt(abs(x-px)**2 + abs(y-py)**2) * weight
+            # Save Good
+            # return - self.calculate_d2Goal(s) - (math.sqrt(abs(x-px)**2 + abs(y-py)**2)/10)
 
     def reward_subgoal(self, node):
         subgoal_r_sum = 0
@@ -379,9 +374,9 @@ class Continuous_Grid:
         return subgoal_r_sum
 
     # reward function
-    def calculate_reward(self, node):
+    def calculate_reward(self, node, weight=1):
         subgoal_r = self.reward_subgoal(node)
-        goal_r = self.reward_goal(node.s, node.parent.s)
+        goal_r = self.reward_goal(node.s, node.parent.s, weight)
         
         # No cost when achieve subgoal
         if goal_r < 0 and subgoal_r != 0:
@@ -535,3 +530,19 @@ class Continuous_Grid:
             # Show the plot
             # pass
             plt.show()
+
+    def visualize_tree(self, root, depth=0, save_path=None):
+        dot = graphviz.Digraph()
+        dot.node(str(root.s)+"@"+str(depth)+"root")
+
+        def add_nodes_edges(node, depth):
+            for child in node.children.values():
+                dot.node(str(child.s)+"@"+str(depth+1)+"parent:"+str(child.parent))
+                if child.parent.isRoot:
+                    dot.edge(str(root.s)+"@"+str(depth)+"root", str(child.s)+"@"+str(depth)+"parent:"+str(child.parent))
+                else:
+                    dot.edge(str(node.s)+"@"+str(depth)+"parent:"+str(node.parent), str(child.s)+"@"+str(depth)+"parent:"+str(child.parent))
+                add_nodes_edges(child, depth+1)
+
+        add_nodes_edges(root, 0)
+        dot.render(view=True, format='png')
