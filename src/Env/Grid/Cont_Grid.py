@@ -29,7 +29,8 @@ class Continuous_Grid:
         cont_action_radius: int=1,
         num_barrier: int = 10,
         goal_n_start_distance: int = 3,
-        assigned_barrier=None
+        assigned_barrier=None,
+        assigned_start_goal=None
     ):
         self.H_level = H_level
         
@@ -62,7 +63,7 @@ class Continuous_Grid:
             self.barrier = self.assign_barrier(assigned_barrier)
         else:
             self.barrier = self.generate_barrier()
-        self.start_dict, self.goal_dict = self.generate_start_goal()
+        self.start_dict, self.goal_dict = self.generate_start_goal(assigned_start_goal)
 
         # Reward of goal and subgoal for each level
         self.set_rewards()
@@ -138,9 +139,28 @@ class Continuous_Grid:
             ):
                 # print(distance)
                 return (start_x, start_y), (goal_x, goal_y)
+    
+    def assigned_start_goal(self, assigned_start_goal):
+        # INPUT: assigned start goal (designed in level 1)
+        #           - denotes bottom-left corner (x, y) value
+        #           - example: [(1, 1), (0, 1)]
+        # OUTPUT: randomly selected start, goal in level 0
+        #           - example: [(2.435, 3.554), (0.2235, 3.985)]
+        start_x1, start_y1 = assigned_start_goal[0]
+        goal_x1, goal_y1 = assigned_start_goal[1]
+
+        start_x = np.random.uniform(start_x1, start_x1+self.l1_width)
+        start_y = np.random.uniform(start_y1, start_y1+self.l1_height)
+        goal_x = np.random.uniform(goal_x1, goal_x1+self.l1_width)
+        goal_y = np.random.uniform(goal_y1, goal_y1+self.l1_height)
+
+        return (start_x, start_y), (goal_x, goal_y)
             
-    def generate_start_goal(self):
-        start, goal = self.random_start_goal()
+    def generate_start_goal(self, assigned_start_goal=None):
+        if assigned_start_goal:
+            start, goal = self.assigned_start_goal(assigned_start_goal)
+        else:
+            start, goal = self.random_start_goal()
         start_dict, goal_dict = {0: start}, {0: goal}
         for level in self.levels[1:]:
             start_dict[level] = hierarchy_map_cont(level_curr=0, level2move=level, pos=start)
