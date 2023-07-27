@@ -14,7 +14,7 @@ class Continuous_Grid:
         grid_settings,
         H_level: int = 2,
         goal_radius: float = 0.95,
-        barrier_find_segment: int = 1001,
+        # barrier_find_segment: int = 1001,
         random_seed: int=30,
         A_space={
                     (1, 0),
@@ -29,6 +29,7 @@ class Continuous_Grid:
         cont_action_radius: int=1,
         num_barrier: int = 10,
         goal_n_start_distance: int = 3,
+        assigned_barrier=None
     ):
         self.H_level = H_level
         
@@ -57,7 +58,10 @@ class Continuous_Grid:
         
         np.random.seed(random_seed)
 
-        self.barrier = self.generate_barrier()
+        if assigned_barrier:
+            self.barrier = self.assign_barrier(assigned_barrier)
+        else:
+            self.barrier = self.generate_barrier()
         self.start_dict, self.goal_dict = self.generate_start_goal()
 
         # Reward of goal and subgoal for each level
@@ -65,7 +69,7 @@ class Continuous_Grid:
 
         self.is_terminated = False
         self.radius = goal_radius
-        self.barrier_find_segment = barrier_find_segment
+        # self.barrier_find_segment = barrier_find_segment
 
     def __str__(self):
         return (
@@ -162,6 +166,29 @@ class Continuous_Grid:
                     region_y * self.l1_height,
                     region_width * self.l1_width,
                     region_height * self.l1_height,
+                )
+            )
+        return regions
+    
+    def assign_barrier(self, assigned_barrier):
+        # INPUT: assigned barrier (designed in level 1)
+        #           - denotes bottom-left corner (x, y) value
+        #           - example: [(1, 1), (0, 1)]
+        # OUTPUT: region
+        #           - denotes bottom-left corner (x, y) value
+        #           - example: [(2, 2, 2, 2), (0, 2, 2, 2)]
+
+        # Number of barrier regions (randomly chosen)
+        regions = []
+        
+        for i in range(len(assigned_barrier)):
+            x, y = assigned_barrier[i]
+            regions.append(
+                (
+                    x * self.l1_width,
+                    y * self.l1_height,
+                    self.l1_width,
+                    self.l1_height,
                 )
             )
         return regions

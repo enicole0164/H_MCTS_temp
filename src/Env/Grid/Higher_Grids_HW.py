@@ -24,6 +24,7 @@ class HighLevelGrids2:
         random_seed=26,
         num_barrier=10,
         reward_function_weight=1,
+        assigned_barrier=None,
         
     ):
         self.l1_rows = grid_settings[0]
@@ -56,7 +57,10 @@ class HighLevelGrids2:
 
         # set level 1 barrier
         self.num_barrier = num_barrier  # random.randint(3, 6)
-        self.generate_barrier()
+        if assigned_barrier:
+            self.assign_barrier(assigned_barrier)
+        else:
+            self.generate_barrier()
 
         # Set start, goal point
         self.start_dict, self.goal_dict = self.generate_start_goal()
@@ -214,6 +218,15 @@ class HighLevelGrids2:
             for i in range(barrier_width):
                 for j in range(barrier_height):
                     self.barrier.add((barrier_x + i, barrier_y + j))
+
+    def assign_barrier(self, assigned_barrier):
+        self.barrier = set()
+
+        for i in range(len(assigned_barrier)):
+            x, y = assigned_barrier[i]
+            self.barrier.add(
+                (x, y)
+            )
 
     def is_barrier(self, x, y):  # barrier for grid world. Only use at level 1
         if x < 0 or y < 0 or x >= self.l1_cols or y >= self.l1_rows:
