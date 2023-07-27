@@ -172,13 +172,10 @@ class HighLevelGrids2:
     def reward_goal(self, s):
         level, x, y = s
         goal_x, goal_y = self.goal_dict[level]
+        if (x, y) == (goal_x, goal_y):
+            return self.r_dict[level]
+        return (self.A_cost_dict[level] - self.calculate_d2Goal(s) * 2 * level) * self.reward_function_weight
         # self.weight = 0.2
-        return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level] - self.calculate_d2Goal(s) * 2 * level) * self.reward_function_weight
-        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level] - self.calculate_d2Goal(s)) * const
-        # Save Good
-        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else (self.A_cost_dict[level]*0.1 - (self.calculate_d2Goal(s) * 0.05))
-        # Save Good
-        # return self.r_dict[level] if (x, y) == (goal_x, goal_y) else 0
 
     def calculate_d2Goal(self, s):
         level, x, y = s
