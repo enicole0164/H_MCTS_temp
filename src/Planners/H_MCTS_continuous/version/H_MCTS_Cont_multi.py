@@ -3,6 +3,7 @@ from copy import deepcopy
 import math
 import random
 import sys
+import numpy as np
 
 from src.Env.Grid.Higher_Grids_HW import HighLevelGrids3, HighLevelGrids2
 from src.Planners.H_MCTS_continuous.Node_Cont import H_Node_Cont
@@ -27,6 +28,9 @@ class H_MCTS_Cont:
         gamma=1,
         alpha=0.05,
         constant_c=10,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
@@ -45,6 +49,10 @@ class H_MCTS_Cont:
         self.explorationConstant_h = explorationConstant_h
         self.explorationConstant_l = explorationConstant_l
 
+        # set random
+        np.random.seed(random_seed)
+        
+
         self.set_env(
             grid_setting,
             H_level,
@@ -55,6 +63,10 @@ class H_MCTS_Cont:
             l1_action_cost,
             random_seed,
             num_barrier,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
+
         )
 
         # Assume that we know the env
@@ -73,6 +85,9 @@ class H_MCTS_Cont:
         l1_action_cost=(-1) * 2,
         random_seed=25,
         num_barrier=10,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
     ):  
         self.cont_env = Continuous_Grid(
             grid_settings=grid_setting[:4],
@@ -82,6 +97,9 @@ class H_MCTS_Cont:
             num_barrier=num_barrier,
             l1_goal_reward=l1_goal_reward,
             l1_subgoal_reward=l1_subgoal_reward,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
         )
         
         self.env = HighLevelGrids2(
@@ -92,6 +110,8 @@ class H_MCTS_Cont:
             reward_function_weight=grid_setting[5],
             l1_goal_reward=l1_goal_reward,
             l1_subgoal_reward=l1_subgoal_reward,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal
         )
         
         self.env.inherit_start_goal(self.cont_env.start_dict, self.cont_env.goal_dict)

@@ -371,7 +371,7 @@ class Continuous_Grid:
 
         for point in list_p:
             distance = math.sqrt((point[0] - p0[0])**2 + (point[1] - p0[1])**2)
-            if distance < closest_distance:
+            if distance < closest_distance and not self.is_barrier(point[0], point[1]):
                 closest_distance = distance
                 closest_point = point
 

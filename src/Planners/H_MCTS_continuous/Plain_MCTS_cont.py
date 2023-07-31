@@ -2,6 +2,7 @@ import numpy as np
 
 import random
 import math
+import graphviz
 
 
 from copy import deepcopy
@@ -107,6 +108,10 @@ class Plain_MCTS_Cont:
         random_seed=25,
         num_barrier=15,
         gamma=1,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
+        stepbystep=False,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
@@ -124,12 +129,17 @@ class Plain_MCTS_Cont:
         self.RS = RS
         self.explorationConstant = explorationConstant
 
+        self.stepbystep = stepbystep        
+
         self.set_env(
             grid_setting=grid_setting,
             H_level=H_level,
             random_seed=random_seed,
             num_barrier=num_barrier,
             goal_n_start_distance=grid_setting[4],
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
         )
 
         # Assume that we know the env
@@ -149,6 +159,9 @@ class Plain_MCTS_Cont:
         random_seed=25,
         num_barrier=10,
         goal_n_start_distance=3,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
     ):
         self.env = Continuous_Grid(
             grid_settings=grid_setting,
@@ -156,6 +169,9 @@ class Plain_MCTS_Cont:
             random_seed=random_seed,
             num_barrier=num_barrier,
             goal_n_start_distance=goal_n_start_distance,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
         )
 
         # Generate initial state at the highest level
@@ -174,8 +190,12 @@ class Plain_MCTS_Cont:
         self.set_Root()  # set root and its subgoal ( destination at high level)
 
         for i in range(self.searchLimit):
-            path, suceed = self.executeRound()
-            if suceed:
+            path, succeed = self.executeRound()
+            if self.stepbystep and i%100==1:
+                input("Press Enter to continue...")
+                self.visualize_tree(self.root)
+
+            if succeed:
                 success = True
                 self.env.plot_grid_tree(self.root, save_path=save_path)
                 return path, success, i + 1
@@ -277,3 +297,36 @@ class Plain_MCTS_Cont:
 
     def getReward(self, node: Plain_Node_cont):
         return self.env.calculate_reward(node=node)
+    
+
+    def visualize_tree(self, root, depth=0, save_path=None):
+        dot = graphviz.Digraph()
+        root_id = str(root.s)+"@"+str(depth)+"root"
+        root_name = str(root.s)
+        dot.node(root_id, root_name)
+
+        def add_nodes_edges(node, depth):
+            if depth == 7:
+                return
+            for child in node.children.values():
+                # node is parent of child
+                # Create child node
+                child_id = str(child.s)+"@"+str(depth+1)+"parent"+str(node.s)
+                child_name = str(child.s)
+                child_UCT = (
+                        child.totalReward / child.numVisits
+                        + self.explorationConstant
+                        * math.sqrt(math.log(node.numVisits) / child.numVisits)
+                    )
+                dot.node(child_id, child_name + "\n" + str(child_UCT))
+                # if node is Root
+                if node.isRoot:
+                    parent_id = str(node.s)+"@"+str(depth)+"root"
+                    dot.edge(parent_id, child_id)
+                else:
+                    parent_id = str(node.s)+"@"+str(depth)+"parent"+str(node.parent.s)
+                    dot.edge(parent_id, child_id)
+                add_nodes_edges(child, depth+1)
+
+        add_nodes_edges(root, 0)
+        dot.render(view=True, format='png')

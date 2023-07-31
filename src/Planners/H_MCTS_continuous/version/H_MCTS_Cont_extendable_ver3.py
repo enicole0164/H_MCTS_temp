@@ -31,6 +31,10 @@ class H_MCTS_Cont:
         alpha=0.05,
         constant_c=10,
         extend_zero=0.005,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
+        stepbystep=False,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
@@ -52,6 +56,8 @@ class H_MCTS_Cont:
         self.explorationConstant_h = explorationConstant_h
         self.explorationConstant_l = explorationConstant_l
 
+        self.stepbystep = stepbystep        
+
         self.set_env(
             grid_setting,
             H_level,
@@ -62,6 +68,9 @@ class H_MCTS_Cont:
             l1_action_cost,
             random_seed,
             num_barrier,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
         )
 
         # Assume that we know the env
@@ -85,6 +94,9 @@ class H_MCTS_Cont:
         l1_action_cost=(-1) * 2,
         random_seed=25,
         num_barrier=10,
+        assigned_barrier=None,
+        assigned_start_goal=None,
+        cont_action_radius=1,
     ):  
         self.cont_env = Continuous_Grid(
             grid_settings=grid_setting[:4],
@@ -94,6 +106,9 @@ class H_MCTS_Cont:
             goal_n_start_distance=grid_setting[4],
             l1_goal_reward=l1_goal_reward,
             l1_subgoal_reward=l1_subgoal_reward,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
+            cont_action_radius=cont_action_radius,
         )
         
         self.env = HighLevelGrids2(
@@ -104,6 +119,8 @@ class H_MCTS_Cont:
             reward_function_weight=grid_setting[5],
             l1_goal_reward=l1_goal_reward,
             l1_subgoal_reward=l1_subgoal_reward,
+            assigned_barrier=assigned_barrier,
+            assigned_start_goal=assigned_start_goal,
         )
         
         self.env.inherit_start_goal(self.cont_env.start_dict, self.cont_env.goal_dict)
@@ -131,6 +148,10 @@ class H_MCTS_Cont:
 
         for i in range(self.searchLimit):
             path = self.executeRound()
+            if path is not None or (self.stepbystep and i%100==1):
+                input("Press Enter to continue...")
+                self.visualize_tree(self.root)
+
             if path is not None:
                 success = True
                 self.cont_env.plot_grid_tree(self.root, save_path=tree_save_path)
@@ -493,7 +514,13 @@ class H_MCTS_Cont:
                 # Create child node
                 child_id = str(child.s)+"@"+str(depth+1)+"parent"+str(node.s)
                 child_name = str(child.s)
-                dot.node(child_id, child_name)
+                child_UCT = (
+                        child.totalReward / child.numVisits
+                        + self.explorationConstant_h
+                        * math.sqrt(math.log(node.numVisits) / child.numVisits)
+                    )
+                child_achieved_subgoal = child.achieved_subgoal
+                dot.node(child_id, child_name + "\n" + "{:.2f}".format(child_UCT) + "\n" + str(child_achieved_subgoal))
                 # if node is Root
                 if node.isRoot:
                     parent_id = str(node.s)+"@"+str(depth)+"root"

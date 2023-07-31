@@ -25,6 +25,7 @@ class HighLevelGrids2:
         num_barrier=10,
         reward_function_weight=1,
         assigned_barrier=None,
+        assigned_start_goal=None,
         
     ):
         self.l1_rows = grid_settings[0]

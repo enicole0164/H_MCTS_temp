@@ -15,6 +15,12 @@ H_MCTS_SINGLE_EXPERIMENT_DIR = os.path.join(H_MCTS_EXPERIMENT_DIR, 'single-plan-
 H_MCTS_MULTI_EXPERIMENT_DIR = os.path.join(H_MCTS_EXPERIMENT_DIR, 'multi-plan-wandb')
 H_MCTS_EXTENDABLE_VER3_EXPERIMENT_DIR = os.path.join(H_MCTS_EXPERIMENT_DIR, 'extendable-plan-wTree-ver3')
 
+HD_EXPERIMENT_DIR = os.path.join(ROOT_DIR, 'experiments_hd_grid')
+HD_PLAIN_MCTS_EXPERIMENT_DIR = os.path.join(HD_EXPERIMENT_DIR, 'Plain-MCTS')
+HD_SINGLE_H_MCTS_EXPERIMENT_DIR = os.path.join(HD_EXPERIMENT_DIR, 'H-MCTS', 'single')
+HD_MULTI_H_MCTS_EXPERIMENT_DIR = os.path.join(HD_EXPERIMENT_DIR, 'H-MCTS', 'multi')
+HD_EXTENDABLE_H_MCTS_EXPERIMENT_DIR = os.path.join(HD_EXPERIMENT_DIR, 'H-MCTS', 'extendable')
+
 # Helper Function
 # Generates iteration vs success rate plot
 def cumul_plot(iter_Limit, mcts_result, path):
