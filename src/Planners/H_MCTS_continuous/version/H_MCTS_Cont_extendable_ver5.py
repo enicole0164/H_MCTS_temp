@@ -10,6 +10,7 @@ from src.Planners.H_MCTS_continuous.Node_Cont import H_Node_Cont
 from src.Env.Grid.Cont_Grid import Continuous_Grid
 
 # Most Recent Version of Extendable Planning
+# Added exploration_constant_scale
 
 
 class H_MCTS_Cont:
@@ -35,6 +36,7 @@ class H_MCTS_Cont:
         assigned_start_goal=None,
         cont_action_radius=1,
         stepbystep=False,
+        exploration_constant_scale=1.0,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
@@ -55,6 +57,8 @@ class H_MCTS_Cont:
         self.RS = RS
         self.explorationConstant_h = explorationConstant_h
         self.explorationConstant_l = explorationConstant_l
+
+        self.exploration_constant_scale = exploration_constant_scale
 
         self.stepbystep = stepbystep        
 
@@ -399,6 +403,8 @@ class H_MCTS_Cont:
             )
 
         for child in node.children.values():
+            if child.s[0] != 0:
+                explorationValue = explorationValue * self.exploration_constant_scale
             # calculate UCT value
             nodeValue = ( # calculate the best child
                 child.totalReward / child.numVisits

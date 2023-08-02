@@ -31,6 +31,7 @@ class H_MCTS_Cont:
         assigned_barrier=None,
         assigned_start_goal=None,
         cont_action_radius=1,
+        exploration_constant_scale=1.0,
     ):
         self.searchLimit = iter_Limit
         self.limitType = "iter"
@@ -48,6 +49,8 @@ class H_MCTS_Cont:
         self.RS = RS
         self.explorationConstant_h = explorationConstant_h
         self.explorationConstant_l = explorationConstant_l
+
+        self.exploration_constant_scale = exploration_constant_scale
 
         # set random
         np.random.seed(random_seed)
@@ -299,6 +302,8 @@ class H_MCTS_Cont:
             )
 
         for child in node.children.values():
+            if child.s[0] != 0:
+                explorationValue = explorationValue * self.exploration_constant_scale
             # calculate UCT value
             nodeValue = ( # calculate the best child
                 child.totalReward / child.numVisits
